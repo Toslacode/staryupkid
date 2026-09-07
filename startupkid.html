@@ -15,6 +15,9 @@
     color:var(--text);user-select:none;-webkit-user-select:none}
   #viewport{position:fixed;inset:0;background:radial-gradient(ellipse at 50% 40%,#1a1240 0%,#0b0820 70%)}
   #stage{position:absolute;width:1280px;height:760px;transform-origin:0 0;overflow:hidden}
+  /* #world is moved/zoomed by the camera; #ui never moves */
+  #world{position:absolute;left:0;top:0;width:1280px;height:760px;transform-origin:0 0;will-change:transform}
+  #ui{position:absolute;inset:0;z-index:10;pointer-events:none}
   #game{position:absolute;left:0;top:0;width:1280px;height:760px;display:block;cursor:default}
   #game.grab{cursor:grabbing}
 
@@ -60,6 +63,8 @@
   .tchip .as{color:var(--muted);font-size:11px}
   .tchip .as.work{color:#fff}
   .tchip .lvl{color:var(--gold);font-size:10px}
+  .tchip .fat{width:26px;height:4px;background:rgba(255,255,255,.14);border-radius:3px;overflow:hidden}
+  .tchip .fat i{display:block;height:100%;border-radius:3px;transition:width .3s}
   #dragGhost{position:absolute;pointer-events:none;z-index:50;transform:translate(-50%,-50%);background:rgba(30,18,80,.95);
     border:1px solid var(--cyan);border-radius:10px;padding:5px 10px;font-size:12px;box-shadow:0 6px 20px rgba(0,0,0,.5)}
 
@@ -90,7 +95,7 @@
   .popup .foot.warn{color:#ffb4a2}
 
   /* ---------- Summary panel ---------- */
-  #summary{position:absolute;right:26px;top:96px;width:384px;max-height:604px;overflow:auto;background:rgba(17,10,44,.975);backdrop-filter:blur(6px);
+  #summary{position:absolute;right:26px;top:96px;width:384px;max-height:604px;overflow:auto;pointer-events:auto;background:rgba(17,10,44,.975);backdrop-filter:blur(6px);
     border:1px solid rgba(200,107,255,.45);border-radius:16px;padding:12px 15px;box-shadow:0 14px 50px rgba(0,0,0,.65);z-index:25;
     font-size:13px;animation:popin .2s ease-out;box-sizing:border-box}
   #summary h2{margin:0 0 2px;font-size:19px}
@@ -124,13 +129,50 @@
   #help{position:absolute;left:22px;bottom:48px;color:var(--muted);font-size:11px;pointer-events:none;line-height:1.5;
     background:rgba(12,8,36,.55);padding:4px 8px;border-radius:8px}
   #help b{color:#fff;font-weight:600}
+
+  /* ---------- Daily goal + investor confidence ---------- */
+  #goalChip{min-width:150px}
+  #goalBar{position:relative;height:7px;background:rgba(255,255,255,.1);border-radius:4px;overflow:hidden;margin-top:4px}
+  #goalBar i{display:block;height:100%;border-radius:4px;background:linear-gradient(90deg,#ff7a59,#ffd166);transition:width .25s}
+  #goalBar u{position:absolute;top:-2px;width:2px;height:11px;background:#fff;opacity:.75}
+  #goalChip .gv{display:flex;align-items:baseline;gap:5px;justify-content:space-between}
+  #goalChip .gv b{font-size:15px} #goalChip .gv span{font-size:11px;color:var(--muted)}
+  #confWrap{display:flex;align-items:center;gap:5px;margin-top:5px}
+  #confWrap .cb{flex:1;height:5px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden}
+  #confWrap .cb i{display:block;height:100%;background:linear-gradient(90deg,#5dd6ff,#c86bff);transition:width .4s}
+  #confWrap span{font-size:10px;color:var(--muted);white-space:nowrap}
+  .stars{letter-spacing:1px;color:#ffd166;text-shadow:0 0 8px rgba(255,209,102,.6)}
+  .stars i{opacity:.22;font-style:normal}
+  .stars i.on{opacity:1}
+
+  /* ---------- Event banner strip ---------- */
+  #evtStrip{position:absolute;left:50%;top:96px;transform:translateX(-50%);display:flex;gap:6px;pointer-events:none;z-index:6}
+  .evtTag{display:flex;align-items:center;gap:6px;background:rgba(12,8,36,.88);border:1px solid;border-radius:11px;padding:4px 10px;
+    font-size:12px;font-weight:600;animation:popin .18s ease-out;white-space:nowrap}
+  .evtTag .ring{width:13px;height:13px;border-radius:50%;border:2px solid;border-right-color:transparent;animation:spin 1.1s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* ---------- Start / continue gate ---------- */
+  #gate{position:absolute;inset:0;background:rgba(6,4,20,.82);backdrop-filter:blur(5px);z-index:60;display:flex;
+    align-items:center;justify-content:center;pointer-events:auto}
+  #gate .card{background:var(--panel2);border:1px solid rgba(93,214,255,.4);border-radius:18px;padding:26px 30px;text-align:center;
+    box-shadow:0 20px 70px rgba(0,0,0,.7);max-width:430px}
+  #gate h1{margin:0 0 4px;font-size:30px;letter-spacing:1px}
+  #gate p{margin:0 0 16px;color:var(--muted);font-size:13px;line-height:1.5}
+  #gate .btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+  #gate .best{margin-top:12px;font-size:12px;color:var(--gold)}
 </style>
 </head>
 <body>
 <div id="viewport">
   <div id="stage">
-    <canvas id="game" width="1280" height="760"></canvas>
+    <div id="world">
+      <canvas id="game" width="1280" height="760"></canvas>
+      <div id="dragGhost" class="hidden"></div>
+      <div id="menu" class="popup hidden"></div>
+    </div>
 
+    <div id="ui">
     <div id="hud">
       <div id="hudRight">
         <div class="chip" id="dayChip"><small id="phaseLbl">בוקר</small><b id="dayLbl">יום 1 / 7</b></div>
@@ -149,19 +191,32 @@
         <button class="btn ghost" id="speedBtn" title="מהירות היום">×1</button>
       </div>
       <div id="hudLeft">
+        <div class="chip" id="goalChip">
+          <small>יעד היום</small>
+          <div class="gv"><b id="goalNow">₪ 0</b><span id="goalTarget">/ ₪ 0</span></div>
+          <div id="goalBar"><i style="width:0%"></i><u id="mk1"></u><u id="mk2"></u></div>
+          <div id="confWrap"><span>אמון</span><div class="cb"><i id="confBar" style="width:50%"></i></div><span id="confLbl">50</span></div>
+        </div>
         <div class="chip"><small>עובדים פעילים</small><b id="slotsLbl">0 / 2</b></div>
         <div class="chip"><small>החלפות היום</small><b class="dots" id="movesDots"></b></div>
         <div class="chip"><small>המחשב שלי</small><b class="dots" id="pcDots"></b></div>
       </div>
     </div>
 
+    <div id="evtStrip"></div>
     <div id="tray"></div>
-    <div id="dragGhost" class="hidden"></div>
-    <div id="menu" class="popup hidden"></div>
     <div id="summary" class="hidden"></div>
     <div id="banner"><div class="t"></div><div class="s"></div></div>
     <div id="toast"></div>
     <div id="help"><b>WASD / חצים</b> תנועה · <b>רווח</b> פעולה · <b>Esc</b> סגירה · גרירה מהמגש = קיצור</div>
+    </div>
+
+    <div id="gate"><div class="card">
+      <h1>STARTUPKID</h1>
+      <p id="gateMsg">אתה סטארטמון. זה המשרד שלך.<br>בחר מי עובד היום ואיפה, פתח את העסק, והישאר בתוך המשרד בזמן שהצוות עובד.</p>
+      <div class="btns" id="gateBtns"></div>
+      <div class="best" id="gateBest"></div>
+    </div></div>
   </div>
 </div>
 
@@ -224,6 +279,50 @@ const CONFIG = {
   },
 
   startingMoney: 0,
+
+  // ----- מצלמה: zoom:1 + follow:false מחזיר בדיוק לתצוגה הקבועה הישנה -----
+  camera: {
+    zoom: 1.10,          // כמה מתקרבים למשרד (גבוה מדי חותך את קצוות המשרד)
+    follow: true,        // האם המצלמה עוקבת אחרי השחקן
+    followSpeed: 2.6,    // כמה מהר היא מדביקה אותו (גבוה = צמוד יותר)
+    deadZone: 120,       // אזור במרכז שבו תנועה קטנה לא מזיזה את המצלמה
+    shakeOnLevelUp: 6,   // עוצמת רעידה בעליית רמה
+    shakeOnEvent: 4,     // עוצמת רעידה בסיום אירוע
+    shakeOnDayEnd: 7,
+    punchOnLevelUp: 0.05,// קפיצת זום קצרה
+    punchOnEvent: 0.03,
+  },
+
+  // ----- אירועים חיים במהלך יום העבודה -----
+  events: {
+    firstAt: 5,          // שניות עד האירוע הראשון
+    interval: 8,         // שניות בין אירועים
+    intervalJitter: 2.5, // אקראיות סביב המרווח
+    maxActive: 3,        // כמה אירועים במקביל לכל היותר
+    maxActiveBad: 1,     // אבל רק אירוע מזיק אחד בכל רגע, כדי שלא ייערמו עונשים
+    duration: 14,        // כמה זמן יש לטפל באירוע
+    client:   { bonus: 22, bonusPerDay: 4 },   // לקוח גדול: כסף מיידי (גדל עם הימים)
+    bug:      { outputPenalty: 0.65 },         // באג: התחנה מייצרת פחות
+    stuck:    { outputPenalty: 0.35 },         // עובד נתקע: כמעט לא מייצר
+    idea:     { xpBurst: 15 },                 // רעיון: XP לכל עובד פעיל (דריכה, בלי רווח)
+    coffee:   { fatigueRelief: 20 },           // קפה: מוריד עייפות לעובד הכי עייף
+  },
+
+  // ----- יעד יומי, כוכבים ואמון המשקיע (לחץ רך: אי אפשר להפסיד) -----
+  goals: {
+    dailyTargets: [265, 265, 390, 500, 670, 760, 800], // יעד הכנסה לכל יום
+    starThresholds: [0.7, 1.0, 1.3],  // כוכב 1 / 2 / 3 ביחס ליעד
+    confidenceStart: 50,
+    confidencePerStar: [-10, 4, 9, 15], // שינוי אמון לפי 0/1/2/3 כוכבים
+    bonusAtConfidence: 75,   // מעל האמון הזה מקבלים מענק
+    bonusAmount: 90,         // גודל המענק
+  },
+
+  // ----- ספה מול ספסל -----
+  restLockSeconds: 25,   // מי שעל הספה נעול שם לפחות כך (התאוששות אמיתית)
+  benchSwapIsFree: true, // הכנסת עובד מהספסל לא מבזבזת החלפה מהשתיים
+
+  saveKey: 'startupkid.save.v1',
 };
 
 /* ===================================================================================== */
@@ -278,29 +377,69 @@ const state = {
   workers: WORKER_DEFS.map((d, i) => ({
     ...d, unlocked: false, level: 1, xp: 0, fatigue: 0, assignment: 'bench',
     x: BENCH.spots[i].x, y: BENCH.spots[i].y, tx: BENCH.spots[i].x, ty: BENCH.spots[i].y, facing: 1,
-    growth: 0, popAcc: 0, popTimer: 0, rate: 0, flash: 0, mentorFlash: 0, bump: 0, seed: Math.random() * 10,
+    growth: 0, popAcc: 0, popTimer: 0, rate: 0, flash: 0, mentorFlash: 0, bump: 0, seed: Math.random() * 10, restLock: 0,
     workedToday: false, restedToday: false, movedMidday: false,
   })),
   player: { x: 140, y: 330, vx: 0, vy: 0, facing: 1, moving: false },
   founder: { usesLeft: CONFIG.founderComputer.usesPerDay, cooldown: 0, boost: null, screenFlash: 0 },
   effects: [], sparkTimer: 0, mentorTimer: 0, zTimer: 0,
-  dayStats: null, lastDayStats: null, history: [],
-  target: null, menu: null, drag: null, hoverWorker: null,
+  events: [], evtTimer: 0, confidence: CONFIG.goals.confidenceStart, stars: [],
+  dayStats: null, lastDayStats: null, history: [], bestScore: 0, displayMoney: CONFIG.startingMoney,
+  target: null, menu: null, drag: null, hoverWorker: null, idle: 0, tutorialDone: {},
   totalEarned: 0,
 };
 const keys = {};
 let realTime = 0;
 
 function newDayStats() {
-  return { total: 0, byStation: { sales: 0, product: 0, marketing: 0, research: 0 }, byWorker: {}, support: {}, supportXp: {}, endFatigue: {}, natureMoved: false, founderUses: 0, upgrades: [] };
+  return { total: 0, byStation: { sales: 0, product: 0, marketing: 0, research: 0 }, byWorker: {}, support: {}, supportXp: {}, endFatigue: {}, natureMoved: false, founderUses: 0, upgrades: [],
+    eventIncome: 0, eventsHandled: 0, eventsMissed: 0 };
 }
 
 /* ===================================================================================== */
 /* DOM */
 const $ = id => document.getElementById(id);
-const canvas = $('game'), ctx = canvas.getContext('2d');
-const stage = $('stage');
+const canvas = $('game');
+let ctx = canvas.getContext('2d');
+const bg = document.createElement('canvas'), bgx = bg.getContext('2d');
+const stage = $('stage'), world = $('world');
 let scale = 1;
+
+/* ---------- camera ----------
+   #world is transformed as: translate(W/2,H/2) scale(z) translate(-cam.x,-cam.y)
+   so the world point (cam.x, cam.y) always lands in the middle of the stage.     */
+const cam = { x: W / 2, y: H / 2, z: CONFIG.camera.zoom, tx: W / 2, ty: H / 2,
+              shakeT: 0, shakeDur: 1, shakeMag: 0, punchT: 0, punchDur: 1, punchMag: 0 };
+const camShake = (mag, dur = .32) => { cam.shakeMag = Math.max(cam.shakeMag, mag); cam.shakeT = cam.shakeDur = dur; };
+const camPunch = (mag, dur = .3) => { cam.punchMag = mag; cam.punchT = cam.punchDur = dur; };
+// keep the view inside the room: never show anything past the walls
+function clampCam(x, y, z) { const hw = W / (2 * z), hh = H / (2 * z); return { x: clamp(x, hw, W - hw), y: clamp(y, hh, H - hh) }; }
+
+function updateCamera(dt) {
+  const C = CONFIG.camera;
+  if (C.follow) {
+    const p = state.player;
+    // dead zone: small steps near the middle do not drag the camera around
+    if (Math.abs(p.x - cam.tx) > C.deadZone) cam.tx = p.x - Math.sign(p.x - cam.tx) * C.deadZone;
+    if (Math.abs(p.y - cam.ty) > C.deadZone) cam.ty = p.y - Math.sign(p.y - cam.ty) * C.deadZone;
+  } else { cam.tx = W / 2; cam.ty = H / 2; }
+  let z = C.zoom;
+  if (cam.punchT > 0) { cam.punchT = Math.max(0, cam.punchT - dt); z *= 1 + cam.punchMag * Math.sin(Math.PI * (cam.punchT / cam.punchDur)); }
+  cam.z = lerp(cam.z, z, 1 - Math.exp(-12 * dt));
+  const t = clampCam(cam.tx, cam.ty, cam.z);
+  const k = 1 - Math.exp(-C.followSpeed * dt);
+  const c = clampCam(lerp(cam.x, t.x, k), lerp(cam.y, t.y, k), cam.z);
+  cam.x = c.x; cam.y = c.y;
+  if (cam.shakeT > 0) cam.shakeT = Math.max(0, cam.shakeT - dt); else cam.shakeMag = 0;
+  applyCamera();
+}
+function applyCamera() {
+  let ox = 0, oy = 0;
+  if (cam.shakeT > 0) { const f = cam.shakeMag * (cam.shakeT / cam.shakeDur); ox = (Math.random() * 2 - 1) * f; oy = (Math.random() * 2 - 1) * f; }
+  world.style.transform = `translate(${W / 2 + ox}px, ${H / 2 + oy}px) scale(${cam.z}) translate(${-cam.x}px, ${-cam.y}px)`;
+}
+// the visible slice of the world right now, used to keep popups on screen
+function viewRect() { const hw = W / (2 * cam.z), hh = H / (2 * cam.z); return { x: cam.x - hw, y: cam.y - hh, w: hw * 2, h: hh * 2 }; }
 
 function layout() {
   const vw = innerWidth, vh = innerHeight;
@@ -309,12 +448,21 @@ function layout() {
   stage.style.left = ((vw - W * scale) / 2) + 'px';
   stage.style.top = ((vh - H * scale) / 2) + 'px';
   const dpr = Math.min(devicePixelRatio || 1, 2);
-  canvas.width = Math.round(W * scale * dpr); canvas.height = Math.round(H * scale * dpr);
-  canvas._k = scale * dpr;
+  // render at camera zoom too, so the zoomed-in office stays sharp
+  const k = scale * Math.max(1, CONFIG.camera.zoom) * dpr;
+  canvas.width = Math.round(W * k); canvas.height = Math.round(H * k);
+  canvas._k = k;
+  buildStaticLayer();
+  applyCamera();
 }
 addEventListener('resize', layout); layout();
 
-function toWorld(e) { const r = stage.getBoundingClientRect(); return { x: (e.clientX - r.left) / scale, y: (e.clientY - r.top) / scale }; }
+// screen -> world, accounting for both the stage fit-scale and the camera
+function toWorld(e) {
+  const r = stage.getBoundingClientRect();
+  const sx = (e.clientX - r.left) / scale, sy = (e.clientY - r.top) / scale;
+  return { x: (sx - W / 2) / cam.z + cam.x, y: (sy - H / 2) / cam.z + cam.y };
+}
 
 /* ===================================================================================== */
 /* INPUT */
@@ -338,7 +486,11 @@ function occupant(target) { return state.workers.find(w => w.unlocked && w.assig
 function canAssign(w, target) {
   if (state.phase === 'summary' || state.phase === 'end') return { ok: false, reason: 'העסק סגור' };
   if (target === w.assignment) return { ok: false, reason: 'כבר שם' };
-  if (state.phase === 'work' && state.movesLeft <= 0) return { ok: false, reason: 'נגמרו ההחלפות להיום' };
+  // מהספסל אפשר להיכנס לעבודה בלי לבזבז החלפה — זה מה שנותן לספסל תפקיד
+  const freeSwap = CONFIG.benchSwapIsFree && w.assignment === 'bench' && isStation(target);
+  if (state.phase === 'work' && state.movesLeft <= 0 && !freeSwap) return { ok: false, reason: 'נגמרו ההחלפות להיום' };
+  // מי שעל הספה באמת נח — אי אפשר לשלוף אותו מיד
+  if (state.phase === 'work' && w.assignment === 'rest' && w.restLock > 0) return { ok: false, reason: `עוד ${Math.ceil(w.restLock)} ש׳ מנוחה` };
   if (isStation(target)) {
     const occ = occupant(target);
     if (occ) return { ok: false, reason: `תפוס · ${occ.name}` };
@@ -354,10 +506,12 @@ function canAssign(w, target) {
 function assign(w, target, source) {
   const c = canAssign(w, target);
   if (!c.ok) { toast(c.reason); return false; }
-  const wasStation = isStation(w.assignment);
+  const wasStation = isStation(w.assignment), wasBench = w.assignment === 'bench';
   w.assignment = target;
+  w.restLock = target === 'rest' ? CONFIG.restLockSeconds : 0;
   if (state.phase === 'work') {
-    state.movesLeft--;
+    const freeSwap = CONFIG.benchSwapIsFree && wasBench && isStation(target);
+    if (!freeSwap) state.movesLeft--; else toast(`${w.name} נכנס מהספסל — בלי לבזבז החלפה`, false);
     w.movedMidday = true;
     if (w.kind === 'nature' && (wasStation || isStation(target))) { w.growth = 0; state.dayStats.natureMoved = true; addEffect({ type: 'wilt', x: w.x, y: w.y - 40, t: 0, dur: 1 }); }
     if (isStation(target)) w.popAcc = 0;
@@ -395,6 +549,7 @@ function startDay(day) {
     }
     if (w.unlocked) w.assignment = 'bench';
   }
+  state.events = []; state.evtTimer = CONFIG.events.firstAt; renderEventStrip();
   state.workers.filter(w => w.unlocked).forEach(placeWorker);
   for (const w of state.workers) if (w.unlocked && !newcomers.includes(w)) { w.x = w.tx; w.y = w.ty; }
   closeMenu(); $('summary').classList.add('hidden');
@@ -415,6 +570,7 @@ function openBusiness() {
   if (workingCount() === 0) toast('פתחת בלי אף עובד בעמדה — מותר, אבל לא ירוויחו הרבה');
   else if (workingCount() < activeSlots()) toast(`נפתח עם ${workingCount()} מתוך ${activeSlots()} משבצות`);
   state.phase = 'work'; state.time = 0; state.sparkTimer = 1; state.mentorTimer = 2.5;
+  state.events = []; state.evtTimer = CONFIG.events.firstAt; renderEventStrip();
   $('openBtn').classList.add('hidden');
   banner('פותחים!', 'העסק פתוח · אפשר להסתובב, להחליף עובדים ולעבוד במחשב שלך', 2.2);
   addEffect({ type: 'openFlash', t: 0, dur: 1 });
@@ -424,9 +580,17 @@ function openBusiness() {
 function endDay() {
   if (state.phase !== 'work') return;
   state.phase = 'summary'; state.founder.boost = null;
+  state.events = []; renderEventStrip(); camShake(CONFIG.camera.shakeOnDayEnd);
   const ds = state.dayStats;
   for (const w of state.workers) if (w.unlocked) { ds.endFatigue[w.id] = w.fatigue; w.rate = 0; }
   ds.day = state.day;
+  // יעד היום -> כוכבים -> אמון המשקיע. לחץ רך: אי אפשר להפסיד, אבל רואים בבירור איפה אתה עומד.
+  const G = CONFIG.goals;
+  ds.target = dayTarget(); ds.stars = starsFor(ds.total);
+  state.confidence = clamp(state.confidence + G.confidencePerStar[ds.stars], 0, 100);
+  ds.confidence = state.confidence;
+  if (state.confidence >= G.bonusAtConfidence) { ds.bonus = G.bonusAmount; state.money += G.bonusAmount; }
+  state.stars.push(ds.stars);
   state.totalEarned += ds.total;
   closeMenu();
   banner('היום נגמר', 'סוגרים · הנה הסיכום', 2);
@@ -434,11 +598,16 @@ function endDay() {
   updateHUD(); renderTray();
 }
 
+function dayTarget() { const T = CONFIG.goals.dailyTargets; return T[Math.min(state.day - 1, T.length - 1)]; }
+function starsFor(income) { return CONFIG.goals.starThresholds.reduce((n, th) => n + (income >= dayTarget() * th ? 1 : 0), 0); }
+function starsHtml(n) { let h = ''; for (let i = 0; i < 3; i++) h += `<i class="${i < n ? 'on' : ''}">★</i>`; return `<span class="stars">${h}</span>`; }
+
 function nextDay() {
   for (const w of state.workers) if (w.unlocked) w.fatigue = Math.max(0, w.fatigue - CONFIG.overnightRecovery);
   state.history.push(state.dayStats); state.lastDayStats = state.dayStats;
-  if (state.day >= CONFIG.totalDays) { state.phase = 'end'; showFinal(); return; }
+  if (state.day >= CONFIG.totalDays) { state.phase = 'end'; state.bestScore = Math.max(state.bestScore || 0, state.totalEarned); saveGame(); showFinal(); return; }
   startDay(state.day + 1);
+  saveGame();
 }
 
 function upgradeStation(id) {
@@ -450,6 +619,7 @@ function upgradeStation(id) {
   const d = STATIONS[id].desk;
   addEffect({ type: 'upgrade', x: d.x + d.w / 2, y: d.y + d.h / 2, t: 0, dur: 1.2, color: STATIONS[id].accent });
   toast(`${STATIONS[id].name} שודרגה לרמה ${lvl + 1}`, false);
+  camPunch(CONFIG.camera.punchOnEvent); saveGame();
   updateHUD(); showSummary();
 }
 
@@ -460,6 +630,7 @@ function gainXp(w, amt) {
   if (w.xp >= need) {
     w.xp -= need; w.level++; w.bump = 1;
     addEffect({ type: 'levelup', x: w.x, y: w.y, t: 0, dur: 1.4, text: `רמה ${w.level}!`, color: w.color });
+    camShake(CONFIG.camera.shakeOnLevelUp); camPunch(CONFIG.camera.punchOnLevelUp);
     if (state.menu && state.menu.worker === w) openWorkerMenu(w);
   }
 }
@@ -483,6 +654,8 @@ function simTick(dt) {
       if (sparkW && sparkW !== w) { sparkMul = CONFIG.sparkTeamMultiplier[sparkW.level - 1]; mod *= sparkMul; }
       if (S.founder.boost && S.founder.boost.station === st) mod *= CONFIG.founderComputer.boostMultiplier;
       const fatPen = w.kind === 'stone' ? 1 : 1 - (w.fatigue / 100) * CONFIG.fatigueMaxPenalty;
+      if (bugOn(st)) mod *= CONFIG.events.bug.outputPenalty;
+      if (stuckOn(w)) mod *= CONFIG.events.stuck.outputPenalty;
       const rate = base * mod * fatPen, income = rate * dt;
       w.rate = rate;
       S.money += income; S.dayStats.total += income; S.dayStats.byStation[st] += income;
@@ -502,6 +675,7 @@ function simTick(dt) {
       w.workedToday = true;
     } else if (w.assignment === 'rest') {
       w.fatigue = Math.max(0, w.fatigue - CONFIG.restRecovery * dt); w.restedToday = true; w.rate = 0;
+      w.restLock = Math.max(0, w.restLock - dt);
     } else { w.fatigue = Math.max(0, w.fatigue - CONFIG.benchRecovery * dt); w.rate = 0; }
   }
   // founder computer timers
@@ -521,6 +695,7 @@ function simTick(dt) {
   }
   S.zTimer -= dt;
   if (S.zTimer <= 0) { S.zTimer = 1.4; const r = occupant('rest'); if (r) addEffect({ type: 'z', x: r.x + 14, y: r.y - 46, t: 0, dur: 1.6 }); }
+  updateEvents(dt);
   if (S.time >= CONFIG.dayDuration) endDay();
 }
 
@@ -546,6 +721,112 @@ function founderFocus(stationId) {
 }
 
 /* ===================================================================================== */
+/* LIVE EVENTS — משהו קורה כל הזמן, וצריך להגיע פיזית ולטפל בו */
+const EVENT_DEFS = {
+  client: { name: 'לקוח גדול!', hint: 'רווח · לענות', color: '#ffd166', bad: false },
+  bug:    { name: 'באג בתחנה',  hint: 'רווח · לתקן',  color: '#ff5f6d', bad: true },
+  stuck:  { name: 'עובד נתקע',  hint: 'רווח · לעזור', color: '#c86bff', bad: true },
+  idea:   { name: 'רעיון מבריק', hint: 'דרוך עליו',   color: '#7dffb0', bad: false, walkOver: true },
+  coffee: { name: 'קפה מוכן',   hint: 'רווח · להגיש', color: '#5dd6ff', bad: false },
+};
+const bugOn = st => state.events.find(e => e.type === 'bug' && e.station === st);
+const stuckOn = w => state.events.find(e => e.type === 'stuck' && e.worker === w);
+const eventPos = e => e.worker ? { x: e.worker.x, y: e.worker.y - 78 } : { x: e.x, y: e.y };
+
+function spawnEvent() {
+  const E = CONFIG.events;
+  if (state.events.length >= E.maxActive) return;
+  const active = state.workers.filter(w => w.unlocked && isStation(w.assignment));
+  if (!active.length) return;
+  const free = t => !state.events.some(e => e.type === t);
+  const badActive = state.events.filter(e => EVENT_DEFS[e.type].bad).length >= CONFIG.events.maxActiveBad;
+  const cand = [];
+  // each type only offers itself when it would actually mean something
+  const withStation = active.filter(w => !bugOn(w.assignment));
+  if (withStation.length && free('client')) cand.push('client');              // pure opportunity
+  const tech = active.filter(w => (w.assignment === 'product' || w.assignment === 'research') && !bugOn(w.assignment));
+  if (tech.length && !badActive) cand.push('bug');
+  const unstuck = active.filter(w => !stuckOn(w));
+  if (unstuck.length && !badActive) cand.push('stuck');
+  cand.push('idea', 'idea');                                                  // always available, rewards walking
+  const tired = state.workers.filter(w => w.unlocked && w.fatigue > 25);
+  if (tired.length && free('coffee')) cand.push('coffee');
+  const type = cand[(Math.random() * cand.length) | 0];
+
+  const ev = { type, t: 0, dur: E.duration, id: Math.random() };
+  if (type === 'client') { const w = withStation[(Math.random() * withStation.length) | 0]; ev.station = w.assignment; const sp = STATIONS[ev.station].spot; ev.x = sp.x; ev.y = sp.y - 74; }
+  else if (type === 'bug') { const w = tech[(Math.random() * tech.length) | 0]; ev.station = w.assignment; const d = STATIONS[ev.station].desk; ev.x = d.x + d.w / 2; ev.y = d.y + d.h / 2; }
+  else if (type === 'stuck') { ev.worker = unstuck[(Math.random() * unstuck.length) | 0]; ev.station = ev.worker.assignment; }
+  else if (type === 'coffee') { ev.x = COOLER.x + COOLER.w / 2; ev.y = COOLER.y - 16; }
+  else { // idea: a walkable spot away from the player so it is worth the trip
+    for (let i = 0; i < 30; i++) {
+      const x = FLOOR.x + 70 + Math.random() * (FLOOR.w - 140), y = FLOOR.y + 90 + Math.random() * (FLOOR.h - 160);
+      if (OBSTACLES.some(o => x > o.x - 26 && x < o.x + o.w + 26 && y > o.y - 26 && y < o.y + o.h + 26)) continue;
+      if (dist({ x, y }, state.player) < 190) continue;
+      ev.x = x; ev.y = y; break;
+    }
+    if (ev.x === undefined) return;
+  }
+  state.events.push(ev);
+  addEffect({ type: 'evtSpawn', x: eventPos(ev).x, y: eventPos(ev).y, t: 0, dur: .6, color: EVENT_DEFS[type].color });
+  renderEventStrip();
+}
+
+function resolveEvent(ev) {
+  const i = state.events.indexOf(ev); if (i < 0) return;
+  state.events.splice(i, 1);
+  const E = CONFIG.events, d = EVENT_DEFS[ev.type], p = eventPos(ev);
+  let msg = '';
+  if (ev.type === 'client') {
+    const amt = E.client.bonus + E.client.bonusPerDay * (state.day - 1);
+    state.money += amt; state.dayStats.total += amt; state.dayStats.byStation[ev.station] += amt;
+    state.dayStats.eventIncome += amt;
+    addEffect({ type: 'pop', x: p.x, y: p.y, t: 0, dur: 1.5, text: '₪' + amt, color: '#ffd166', size: 26, bold: true });
+    msg = `לקוח נסגר · +${fmt(amt)}`;
+  } else if (ev.type === 'bug') { msg = 'הבאג תוקן'; }
+  else if (ev.type === 'stuck') { ev.worker.bump = 1; msg = `${ev.worker.name} חזר לעבוד`; }
+  else if (ev.type === 'idea') {
+    const act = state.workers.filter(w => w.unlocked && isStation(w.assignment));
+    act.forEach(w => { gainXp(w, E.idea.xpBurst); addEffect({ type: 'xpfloat', x: w.x - 14, y: w.y - 62, t: 0, dur: 1.3 }); });
+    msg = `רעיון! +${E.idea.xpBurst} XP לכל עובד פעיל`;
+  } else if (ev.type === 'coffee') {
+    const tired = state.workers.filter(w => w.unlocked).sort((a, b) => b.fatigue - a.fatigue)[0];
+    if (tired) { tired.fatigue = Math.max(0, tired.fatigue - E.coffee.fatigueRelief); tired.bump = 1;
+      addEffect({ type: 'pop', x: tired.x, y: tired.y - 64, t: 0, dur: 1.3, text: `−${E.coffee.fatigueRelief} עייפות`, color: '#5dd6ff', size: 15 });
+      msg = `${tired.name} קיבל קפה`; }
+  }
+  state.dayStats.eventsHandled++;
+  addEffect({ type: 'burst', x: p.x, y: p.y, t: 0, dur: .55, color: d.color, r: 46, rays: 12 });
+  camShake(CONFIG.camera.shakeOnEvent); camPunch(CONFIG.camera.punchOnEvent);
+  if (msg) toast(msg, false);
+  renderEventStrip();
+}
+
+function updateEvents(dt) {
+  if (state.phase !== 'work') return;
+  state.evtTimer -= dt;
+  if (state.evtTimer <= 0) { spawnEvent(); const E = CONFIG.events; state.evtTimer = E.interval + (Math.random() * 2 - 1) * E.intervalJitter; }
+  for (let i = state.events.length - 1; i >= 0; i--) {
+    const ev = state.events[i];
+    ev.t += dt;
+    // the lightbulb is picked up just by walking over it — no key press
+    if (EVENT_DEFS[ev.type].walkOver && dist(state.player, { x: ev.x, y: ev.y }) < 34) { resolveEvent(ev); continue; }
+    // a worker moved off the station the event belongs to: the event stops making sense
+    if (ev.worker && !isStation(ev.worker.assignment)) { state.events.splice(i, 1); renderEventStrip(); continue; }
+    if (ev.station && !occupant(ev.station)) { state.events.splice(i, 1); renderEventStrip(); continue; }
+    if (ev.t >= ev.dur) { state.events.splice(i, 1); state.dayStats.eventsMissed++; if (EVENT_DEFS[ev.type].bad) toast(`${EVENT_DEFS[ev.type].name} — נגמר הזמן`); renderEventStrip(); }
+  }
+}
+
+function renderEventStrip() {
+  const el = $('evtStrip');
+  el.innerHTML = state.events.filter(e => !EVENT_DEFS[e.type].walkOver).map(e => {
+    const d = EVENT_DEFS[e.type];
+    return `<div class="evtTag" style="border-color:${d.color}88;color:${d.color}"><span class="ring" style="border-color:${d.color};border-right-color:transparent"></span>${d.name}</div>`;
+  }).join('');
+}
+
+/* ===================================================================================== */
 /* INTERACTION + MENUS */
 function findTarget() {
   const p = state.player; let best = null, bd = CONFIG.interactionDistance, bs = Infinity;
@@ -559,18 +840,28 @@ function findTarget() {
   const fd = FOUNDER.desk, cx = clamp(p.x, fd.x, fd.x + fd.w), cy = clamp(p.y, fd.y, fd.y + fd.h);
   const dfo = Math.hypot(p.x - cx, p.y - cy);
   if (dfo < CONFIG.interactionDistance - 20 && dfo < bd) best = { type: 'founder' };
+  // an event nearby always takes priority — it is the thing shouting for attention
+  for (const ev of state.events) {
+    if (EVENT_DEFS[ev.type].walkOver) continue;
+    const q = eventPos(ev), d = Math.hypot(p.x - q.x, p.y - (q.y + 40));
+    if (d < CONFIG.interactionDistance + 14) { best = { type: 'event', ev }; break; }
+  }
   return best;
 }
 function onInteract() {
   if (state.menu) { closeMenu(); return; }
   const t = state.target; if (!t) return;
+  if (t.type === 'event') { resolveEvent(t.ev); state.target = null; return; }
   if (t.type === 'worker') openWorkerMenu(t.w); else openFounderMenu();
 }
 function positionPopup(el, x, y) {
   el.classList.remove('hidden');
   const w = el.offsetWidth || 236, h = el.offsetHeight || 200;
-  let left = x < W / 2 ? x + 44 : x - 44 - w;
-  let top = clamp(y - h / 2 - 20, 96, H - h - 46);
+  const v = viewRect();
+  // open on whichever side has room inside the current view
+  let left = (x - v.x < v.w / 2) ? x + 44 : x - 44 - w;
+  left = clamp(left, v.x + 10, v.x + v.w - w - 10);
+  const top = clamp(y - h / 2 - 20, v.y + 78, v.y + v.h - h - 46);
   el.style.left = left + 'px'; el.style.top = top + 'px';
 }
 function pips(n, max, color) { let s = ''; for (let i = 0; i < max; i++) s += `<i style="display:inline-block;width:7px;height:7px;border-radius:2px;margin-inline-start:2px;background:${i < n ? color : 'rgba(255,255,255,.15)'}"></i>`; return s; }
@@ -637,8 +928,17 @@ function dots(n, max) { let s = ''; for (let i = 0; i < max; i++) s += `<i class
 function updateHUD() {
   $('dayLbl').textContent = `יום ${state.day} / ${CONFIG.totalDays}`;
   $('phaseLbl').textContent = { morning: 'בוקר · בוחרים צוות', work: 'העסק פתוח', summary: 'ערב · סיכום', end: 'סוף השבוע' }[state.phase];
-  $('moneyLbl').textContent = fmt(state.money);
+  $('moneyLbl').textContent = fmt(state.displayMoney);
   $('slotsLbl').textContent = `${workingCount()} / ${activeSlots()}`;
+  const tgt = dayTarget(), got = state.phase === 'morning' ? 0 : state.dayStats.total, barMax = tgt * 1.3;
+  $('goalNow').textContent = fmt(got);
+  $('goalTarget').textContent = '/ ' + fmt(tgt);
+  $('goalBar').firstElementChild.style.width = clamp(got / barMax * 100, 0, 100) + '%';
+  $('mk1').style.right = (CONFIG.goals.starThresholds[0] / 1.3 * 100) + '%';
+  $('mk2').style.right = (CONFIG.goals.starThresholds[1] / 1.3 * 100) + '%';
+  $('goalNow').style.color = got >= tgt ? '#7dffb0' : '#fff';
+  $('confBar').style.width = state.confidence + '%';
+  $('confLbl').textContent = Math.round(state.confidence);
   $('movesDots').innerHTML = dots(state.movesLeft, CONFIG.midDayMoves);
   $('pcDots').innerHTML = dots(state.founder.usesLeft, CONFIG.founderComputer.usesPerDay);
   const left = Math.max(0, CONFIG.dayDuration - state.time);
@@ -656,7 +956,11 @@ function renderTray() {
   let h = `<span class="label">הצוות:</span>`;
   for (const w of state.workers) if (w.unlocked) {
     const a = w.assignment;
-    h += `<div class="tchip" data-id="${w.id}" style="color:${w.color}"><span class="dot" style="background:${w.color}"></span><span style="color:#fff">${w.name}</span><span class="lvl">${'★'.repeat(w.level)}</span><span class="as ${isStation(a) ? 'work' : ''}">${ASSIGN_NAMES[a]}</span></div>`;
+    const locked = a === 'rest' && w.restLock > 0 && state.phase === 'work';
+    h += `<div class="tchip" data-id="${w.id}" style="color:${w.color}"><span class="dot" style="background:${w.color}"></span><span style="color:#fff">${w.name}</span>` +
+         `<span class="lvl">${'★'.repeat(w.level)}</span>` +
+         `<span class="fat"><i style="width:${Math.round(w.fatigue)}%;background:${fatColor(w.fatigue)}"></i></span>` +
+         `<span class="as ${isStation(a) ? 'work' : ''}">${ASSIGN_NAMES[a]}${locked ? ' ' + Math.ceil(w.restLock) : ''}</span></div>`;
   }
   tr.innerHTML = h;
   tr.querySelectorAll('.tchip').forEach(el => {
@@ -733,7 +1037,14 @@ function showSummary() {
   let delta = 'היום הראשון — אין השוואה עדיין';
   let dcls = '';
   if (prev) { const d = ds.total - prev.total; dcls = d >= 0 ? 'up' : 'down'; delta = `${d >= 0 ? '▲' : '▼'} ${fmt(Math.abs(d))} לעומת אתמול (${fmt(prev.total)})`; }
-  let h = `<h2>סיכום יום ${state.day}</h2><div class="big">${fmt(ds.total)}</div><div class="delta ${dcls}">${delta}</div>`;
+  const hitPct = Math.round(ds.total / ds.target * 100);
+  const cChange = CONFIG.goals.confidencePerStar[ds.stars];
+  let h = `<h2>סיכום יום ${state.day} ${starsHtml(ds.stars)}</h2>`;
+  h += `<div class="big">${fmt(ds.total)}</div>`;
+  h += `<div class="delta ${ds.total >= ds.target ? 'up' : 'down'}">יעד היום ${fmt(ds.target)} · הגעת ל־${hitPct}%</div>`;
+  h += `<div class="delta ${dcls}">${delta}</div>`;
+  h += `<div class="delta ${cChange >= 0 ? 'up' : 'down'}">אמון המשקיע ${cChange >= 0 ? '+' : ''}${cChange} → ${Math.round(ds.confidence)}${ds.bonus ? ` · מענק ${fmt(ds.bonus)}` : ''}</div>`;
+  if (ds.eventsHandled + ds.eventsMissed > 0) h += `<div class="delta">אירועים: טיפלת ב־${ds.eventsHandled}, פספסת ${ds.eventsMissed}${ds.eventIncome ? ` · ${fmt(ds.eventIncome)} מלקוחות` : ''}</div>`;
   h += `<h3>הכנסה לפי תחנה</h3>`;
   for (const id of STATION_ORDER) h += `<div class="row"><span class="nm">${STATIONS[id].name} <span style="color:var(--muted);font-size:10px">ר${state.stationLevels[id]}</span></span><div class="bar"><i style="width:${ds.byStation[id] / maxSt * 100}%;background:${STATIONS[id].accent}"></i></div><span class="amt">${fmt(ds.byStation[id])}</span></div>`;
   h += `<h3>תרומה לפי עובד</h3>`;
@@ -756,13 +1067,21 @@ function showFinal() {
   const W_ = state.workers.filter(w => w.unlocked);
   const tot = {}; for (const h of state.history) for (const k in h.byWorker) tot[k] = (tot[k] || 0) + h.byWorker[k];
   const mvp = W_.sort((a, b) => (tot[b.id] || 0) - (tot[a.id] || 0))[0];
-  let h = `<h2>סוף השבוע הראשון</h2><div class="big">${fmt(state.totalEarned)}</div><div class="delta">סה״כ הכנסות ב־7 ימים · בקופה נשאר ${fmt(state.money)}</div>`;
+  const totStars = state.stars.reduce((a, c) => a + c, 0), maxStars = CONFIG.totalDays * 3;
+  const RANKS = [[0.9, 'יוניקורן 🦄'], [0.75, 'סטארטאפ מצליח 🚀'], [0.55, 'סטארטאפ מבטיח 📈'], [0.35, 'עוד מחפשים כיוון 🧭'], [0, 'שבוע קשה ☕']];
+  const rank = RANKS.find(r => totStars / maxStars >= r[0])[1];
+  let h = `<h2>סוף השבוע הראשון</h2>`;
+  h += `<div class="big">${rank}</div>`;
+  h += `<div class="delta">${totStars} כוכבים מתוך ${maxStars} · אמון המשקיע ${Math.round(state.confidence)}</div>`;
+  h += `<div class="delta">סה״כ הכנסות ${fmt(state.totalEarned)} · בקופה נשאר ${fmt(state.money)}</div>`;
+  if (state.bestScore) h += `<div class="delta ${state.totalEarned >= state.bestScore ? 'up' : ''}">${state.totalEarned >= state.bestScore ? '🏆 שיא אישי חדש!' : 'השיא שלך: ' + fmt(state.bestScore)}</div>`;
   h += `<h3>יום לפי יום</h3>`;
   const mx = Math.max(1, ...state.history.map(d => d.total));
-  state.history.forEach(d => h += `<div class="row"><span class="nm">יום ${d.day}</span><div class="bar"><i style="width:${d.total / mx * 100}%;background:#5dd6ff"></i></div><span class="amt">${fmt(d.total)}</span></div>`);
+  state.history.forEach(d => h += `<div class="row"><span class="nm">יום ${d.day}</span><div class="bar"><i style="width:${d.total / mx * 100}%;background:#5dd6ff"></i></div><span class="amt">${fmt(d.total)}</span><span class="vd">${starsHtml(d.stars || 0)}</span></div>`);
   h += `<div class="tip">היום הכי טוב: יום ${best.day} (${fmt(best.total)}). העובד הכי רווחי השבוע: ${mvp.name} (${fmt(tot[mvp.id] || 0)}).<br>רמות תחנות: ${STATION_ORDER.map(id => STATIONS[id].name + ' ' + state.stationLevels[id]).join(' · ')}</div>`;
-  h += `<div class="actions"><button class="btn" onclick="location.reload()">שבוע חדש</button></div>`;
+  h += `<div class="actions"><button class="btn" id="againBtn">שבוע חדש</button></div>`;
   el.innerHTML = h;
+  $('againBtn').onclick = () => { clearSave(); location.reload(); };
   updateHUD();
 }
 
@@ -784,6 +1103,7 @@ function updatePlayer(dt) {
   p.vy = lerp(p.vy, dy * CONFIG.movementSpeed, 1 - Math.exp(-acc * dt));
   if (Math.abs(p.vx) < 2) p.vx = 0; if (Math.abs(p.vy) < 2) p.vy = 0;
   p.moving = len > 0; if (dx !== 0) p.facing = dx > 0 ? 1 : -1;
+  state.idle = (p.moving || state.menu) ? 0 : state.idle + dt;
   const box = { w: 26, h: 14 };
   const hits = (x, y) => {
     const bx = x - box.w / 2, by = y - box.h;
@@ -829,11 +1149,15 @@ function frame(now) {
   const rdt = Math.min(0.05, (now - last) / 1000); last = now; realTime += rdt;
   updatePlayer(rdt);
   updateWorkers(rdt);
+  updateCamera(rdt);
   if (state.phase === 'work') { const sdt = rdt * state.speed; const steps = Math.ceil(sdt / 0.05); for (let i = 0; i < steps && state.phase === 'work'; i++) simTick(sdt / steps); }
   updateEffects(rdt * (state.phase === 'work' ? state.speed : 1));
   state.founder.screenFlash = Math.max(0, state.founder.screenFlash - rdt);
+  // the cash counter ticks up toward the real value so earnings feel continuous
+  const gap = state.money - state.displayMoney;
+  state.displayMoney = Math.abs(gap) < .6 ? state.money : state.displayMoney + gap * (1 - Math.exp(-7 * rdt));
   state.target = state.menu ? state.target : findTarget();
-  if (state.phase === 'work' && (Math.floor(realTime * 10) % 2 === 0)) updateHUD();
+  if (state.phase === 'work' && (Math.floor(realTime * 10) % 2 === 0)) { updateHUD(); if (Math.floor(realTime * 2) !== state._trayT) { state._trayT = Math.floor(realTime * 2); renderTray(); } }
   render();
   requestAnimationFrame(frame);
 }
@@ -844,13 +1168,22 @@ function rr(x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x 
 function hexA(hex, a) { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; }
 function text(s, x, y, size, color, align = 'center', weight = 600) { ctx.font = `${weight} ${size}px "Segoe UI",Heebo,Rubik,Assistant,"Noto Sans Hebrew",Arial,"DejaVu Sans",sans-serif`; ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = 'middle'; ctx.direction = 'rtl'; ctx.fillText(s, x, y); }
 
+// bake the floor, lamp glows and walls once; they cost several gradients per frame otherwise
+function buildStaticLayer() {
+  bg.width = canvas.width; bg.height = canvas.height;
+  const main = ctx; ctx = bgx;
+  ctx.setTransform(canvas._k, 0, 0, canvas._k, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  drawFloorStatic(); drawLights(); drawWallsStatic();
+  ctx = main;
+}
+
 function render() {
   const k = canvas._k; ctx.setTransform(k, 0, 0, k, 0, 0);
   ctx.clearRect(0, 0, W, H);
-  drawFloor();
+  ctx.drawImage(bg, 0, 0, W, H);
+  drawStationGlow();
   drawZoneHighlights();
-  drawLights();
-  drawWalls();
   // depth-sorted world items
   const items = [];
   for (const id of STATION_ORDER) items.push({ y: STATIONS[id].desk.y + STATIONS[id].desk.h, draw: () => drawStationDesk(id) });
@@ -865,11 +1198,14 @@ function render() {
   items.sort((a, b) => (a.early ? BENCH.y : a.y) - (b.early ? BENCH.y : b.y));
   drawPlayerRing();
   for (const it of items) it.draw();
+  drawDayLight();
+  drawEvents();
   drawEffects();
   drawOverlays();
 }
 
-function drawFloor() {
+// everything below never changes frame to frame, so it is baked once into an offscreen canvas
+function drawFloorStatic() {
   const g = ctx.createLinearGradient(0, FLOOR.y, 0, FLOOR.y + FLOOR.h); g.addColorStop(0, '#221a58'); g.addColorStop(1, '#170f3f');
   ctx.fillStyle = g; ctx.fillRect(FLOOR.x, FLOOR.y, FLOOR.w, FLOOR.h);
   ctx.strokeStyle = 'rgba(255,255,255,.035)'; ctx.lineWidth = 1; ctx.beginPath();
@@ -879,22 +1215,27 @@ function drawFloor() {
   // rug under founder desk
   ctx.fillStyle = 'rgba(93,214,255,.06)'; rr(FOUNDER.desk.x - 60, FOUNDER.desk.y - 40, FOUNDER.desk.w + 120, FOUNDER.desk.h + 130, 18); ctx.fill();
   ctx.strokeStyle = 'rgba(93,214,255,.16)'; ctx.setLineDash([8, 8]); ctx.lineWidth = 1.5; ctx.stroke(); ctx.setLineDash([]);
-  // station floor highlights
-  for (const id of STATION_ORDER) {
-    const s = STATIONS[id], d = s.desk, active = !!occupant(id) && state.phase === 'work';
-    const boosted = state.founder.boost && state.founder.boost.station === id;
-    const cx = d.x + d.w / 2, cy = (d.y + d.h / 2 + s.spot.y) / 2;
-    const pulse = active ? 0.5 + 0.5 * Math.sin(realTime * 3) : 0;
-    const a = 0.07 + (active ? 0.08 + pulse * 0.04 : 0) + (boosted ? 0.12 : 0);
-    const rg = ctx.createRadialGradient(cx, cy, 10, cx, cy, 150); rg.addColorStop(0, hexA(s.accent, a)); rg.addColorStop(1, hexA(s.accent, 0));
-    ctx.fillStyle = rg; ctx.fillRect(cx - 160, cy - 160, 320, 320);
-  }
   // rest area highlight
   const rg = ctx.createRadialGradient(SOFA.x + 62, SOFA.y + 30, 10, SOFA.x + 62, SOFA.y + 30, 110); rg.addColorStop(0, 'rgba(255,209,102,.10)'); rg.addColorStop(1, 'rgba(255,209,102,0)');
   ctx.fillStyle = rg; ctx.fillRect(SOFA.x - 60, SOFA.y - 80, 250, 230);
   // door light
   const dg = ctx.createLinearGradient(DOOR.x, 0, DOOR.x + 120, 0); dg.addColorStop(0, 'rgba(255,220,160,.22)'); dg.addColorStop(1, 'rgba(255,220,160,0)');
   ctx.fillStyle = dg; ctx.fillRect(DOOR.x, DOOR.y - 10, 120, DOOR.h + 20);
+}
+
+// the only part of the floor that animates: a station lights up while someone works there
+function drawStationGlow() {
+  for (const id of STATION_ORDER) {
+    const active = !!occupant(id) && state.phase === 'work';
+    const boosted = state.founder.boost && state.founder.boost.station === id;
+    if (!active && !boosted) continue;
+    const s = STATIONS[id], d = s.desk;
+    const cx = d.x + d.w / 2, cy = (d.y + d.h / 2 + s.spot.y) / 2;
+    const pulse = 0.5 + 0.5 * Math.sin(realTime * 3);
+    const a = (active ? 0.08 + pulse * 0.04 : 0) + (boosted ? 0.12 : 0);
+    const rg = ctx.createRadialGradient(cx, cy, 10, cx, cy, 150); rg.addColorStop(0, hexA(s.accent, a)); rg.addColorStop(1, hexA(s.accent, 0));
+    ctx.fillStyle = rg; ctx.fillRect(cx - 160, cy - 160, 320, 320);
+  }
 }
 function drawZoneHighlights() {
   if (!state.drag) return;
@@ -916,7 +1257,7 @@ function drawLights() {
   const g = ctx.createRadialGradient(640, 40, 10, 640, 40, 260); g.addColorStop(0, 'rgba(93,214,255,.12)'); g.addColorStop(1, 'rgba(93,214,255,0)'); ctx.fillStyle = g; ctx.fillRect(380, 0, 520, 300);
   ctx.restore();
 }
-function drawWalls() {
+function drawWallsStatic() {
   // top wall
   const g = ctx.createLinearGradient(0, 0, 0, FLOOR.y); g.addColorStop(0, '#2a2068'); g.addColorStop(1, '#342a7c');
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, FLOOR.y);
@@ -924,14 +1265,14 @@ function drawWalls() {
   for (const wx of [345, 830]) {
     rr(wx, 14, 110, 60, 8); const sky = ctx.createLinearGradient(0, 14, 0, 74); sky.addColorStop(0, '#0a1030'); sky.addColorStop(1, '#2b1a5e'); ctx.fillStyle = sky; ctx.fill();
     ctx.save(); ctx.clip();
-    ctx.fillStyle = 'rgba(255,255,255,.7)'; for (let i = 0; i < 12; i++) { const sx = wx + ((i * 37 + 11) % 110), sy = 18 + ((i * 23 + 7) % 34); ctx.globalAlpha = 0.4 + 0.6 * Math.abs(Math.sin(realTime * 1.3 + i)); ctx.fillRect(sx, sy, 1.5, 1.5); }
+    ctx.fillStyle = 'rgba(255,255,255,.7)'; for (let i = 0; i < 12; i++) { const sx = wx + ((i * 37 + 11) % 110), sy = 18 + ((i * 23 + 7) % 34); ctx.globalAlpha = 0.45 + 0.45 * Math.abs(Math.sin(i * 2.1)); ctx.fillRect(sx, sy, 1.5, 1.5); }
     ctx.globalAlpha = 1; ctx.fillStyle = '#14103a'; for (let i = 0; i < 7; i++) { const bh = 12 + ((i * 17) % 22); ctx.fillRect(wx + i * 16, 74 - bh, 13, bh); ctx.fillStyle = '#14103a'; }
     ctx.fillStyle = '#ffd98a'; for (let i = 0; i < 7; i++) for (let j = 0; j < 3; j++) if ((i * 7 + j * 3) % 4 !== 0) ctx.fillRect(wx + i * 16 + 3 + (j % 2) * 5, 60 - j * 6, 2, 2);
     ctx.restore();
     ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 2; rr(wx, 14, 110, 60, 8); ctx.stroke();
   }
   // neon sign
-  ctx.save(); ctx.shadowColor = '#5dd6ff'; ctx.shadowBlur = 18 + 6 * Math.sin(realTime * 2);
+  ctx.save(); ctx.shadowColor = '#5dd6ff'; ctx.shadowBlur = 20;
   ctx.font = '800 22px "Segoe UI",Arial,"DejaVu Sans",sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.direction = 'ltr';
   ctx.fillStyle = '#bff1ff'; ctx.fillText('STARTUPKID', 640, 18); ctx.restore();
   // baseboard
@@ -1261,6 +1602,17 @@ function drawWorker(w) {
   // station icon bubble while working
   if (working && !show) { const s = STATIONS[w.assignment]; const yy = w.y - 68 + Math.sin(realTime * 2 + w.seed) * 2; ctx.fillStyle = 'rgba(10,6,30,.7)'; ctx.beginPath(); ctx.arc(w.x, yy, 8, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = s.accent; ctx.beginPath(); ctx.arc(w.x, yy, 4, 0, Math.PI * 2); ctx.fill(); }
   if (resting && !show) text('נח', w.x, w.y - 66, 11, 'rgba(255,209,102,.9)');
+  // ספה נעולה = שעון קטן; ספסל = תג "מוכן", כדי שההבדל בין השניים יהיה גלוי בלי לקרוא
+  if (w.assignment === 'rest' && w.restLock > 0 && state.phase === 'work') {
+    const cx = w.x + 26, cy = w.y - 44, f = w.restLock / CONFIG.restLockSeconds;
+    ctx.fillStyle = 'rgba(10,6,30,.8)'; ctx.beginPath(); ctx.arc(cx, cy, 10, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(cx, cy, 7, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (1 - f)); ctx.stroke();
+  } else if (w.assignment === 'bench' && state.phase === 'work') {
+    const bx = w.x, by = w.y - 62 + Math.sin(realTime * 2.5 + w.seed) * 2;
+    ctx.fillStyle = 'rgba(125,255,176,.16)'; rr(bx - 24, by - 9, 48, 18, 9); ctx.fill();
+    ctx.strokeStyle = 'rgba(125,255,176,.6)'; ctx.lineWidth = 1; rr(bx - 24, by - 9, 48, 18, 9); ctx.stroke();
+    text('מוכן', bx, by, 11, '#7dffb0');
+  }
 }
 function drawPlayerRing() {
   const p = state.player; ctx.save(); ctx.strokeStyle = 'rgba(93,214,255,.55)'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 6]); ctx.lineDashOffset = -realTime * 20; ctx.beginPath(); ctx.ellipse(p.x, p.y + 1, 22, 9, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
@@ -1271,12 +1623,106 @@ function drawPlayer() {
   text('אתה', p.x, p.y - 74, 11, 'rgba(159,240,255,.85)');
 }
 
+// tint over the whole room: cool morning -> neutral midday -> warm evening
+function drawDayLight() {
+  const stops = [[0.00, 90, 130, 255, 0.13], [0.45, 255, 245, 220, 0.05], [1.00, 255, 120, 40, 0.20]];
+  let f = state.phase === 'morning' ? 0 : state.phase === 'work' ? clamp(state.time / CONFIG.dayDuration, 0, 1) : 1;
+  let i = 0; while (i < stops.length - 2 && f > stops[i + 1][0]) i++;
+  const a = stops[i], b = stops[i + 1], u = clamp((f - a[0]) / (b[0] - a[0]), 0, 1);
+  const col = [1, 2, 3].map(n => Math.round(lerp(a[n], b[n], u))), al = lerp(a[4], b[4], u);
+  ctx.save(); ctx.globalCompositeOperation = 'overlay';
+  ctx.fillStyle = `rgba(${col[0]},${col[1]},${col[2]},${al})`; ctx.fillRect(0, 0, W, H);
+  ctx.restore();
+  // extra warm glow low on the walls in the evening
+  if (f > .6) { ctx.save(); ctx.globalAlpha = (f - .6) / .4 * .22;
+    const g = ctx.createLinearGradient(0, H, 0, H - 260); g.addColorStop(0, 'rgba(255,140,50,.6)'); g.addColorStop(1, 'rgba(255,140,50,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, H - 260, W, 260); ctx.restore(); }
+}
+
+function drawEventIcon(type, x, y, k) {
+  ctx.save(); ctx.translate(x, y);
+  if (type === 'client') {                     // ringing handset, shaking
+    ctx.rotate(Math.sin(realTime * 22) * .22);
+    ctx.fillStyle = '#ffd166'; ctx.beginPath();
+    ctx.moveTo(-8, -6); ctx.quadraticCurveTo(-10, 4, -2, 8); ctx.quadraticCurveTo(6, 11, 9, 4);
+    ctx.lineTo(4, 1); ctx.quadraticCurveTo(2, 5, -2, 3); ctx.quadraticCurveTo(-5, 0, -3, -4); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 2;
+    for (let i = 1; i <= 2; i++) { ctx.globalAlpha = .8 - i * .25 + .2 * Math.sin(realTime * 8); ctx.beginPath(); ctx.arc(0, 0, 12 + i * 6, -1.1, .3); ctx.stroke(); }
+  } else if (type === 'bug') {                 // red glitch bug with twitching legs
+    ctx.fillStyle = '#ff5f6d'; ctx.beginPath(); ctx.ellipse(0, 0, 9, 7, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#ff5f6d'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+    for (const sx of [-1, 1]) for (let i = 0; i < 3; i++) { const a = Math.sin(realTime * 14 + i) * .3;
+      ctx.beginPath(); ctx.moveTo(sx * 7, -4 + i * 4); ctx.lineTo(sx * 15, -6 + i * 5 + a * 6); ctx.stroke(); }
+    ctx.fillStyle = '#2a0a10'; ctx.fillRect(-4, -3, 3, 3); ctx.fillRect(1, -3, 3, 3);
+    if (Math.sin(realTime * 30) > .4) { ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.fillRect(-11, -2 + ((realTime * 60) % 10), 22, 2); }
+  } else if (type === 'stuck') {               // thought bubble with a question mark
+    ctx.fillStyle = 'rgba(255,255,255,.95)'; ctx.beginPath(); ctx.ellipse(0, 0, 13, 11, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-9, 11, 3.5, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.arc(-13, 17, 2, 0, Math.PI * 2); ctx.fill();
+    text('?', 0, 0, 16, '#c86bff', 'center', 800);
+  } else if (type === 'idea') {                // floating lightbulb with rays
+    const bob = Math.sin(realTime * 3) * 3; ctx.translate(0, bob);
+    ctx.save(); ctx.shadowColor = '#7dffb0'; ctx.shadowBlur = 16;
+    ctx.fillStyle = '#eaffb0'; ctx.beginPath(); ctx.arc(0, -2, 9, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    ctx.fillStyle = '#9aa0b8'; ctx.fillRect(-4, 6, 8, 3); ctx.fillRect(-3, 9, 6, 3);
+    ctx.strokeStyle = '#7dffb0'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+    for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2 + realTime; const r0 = 14 + Math.sin(realTime * 4 + i) * 2;
+      ctx.globalAlpha = .8; ctx.beginPath(); ctx.moveTo(Math.cos(a) * r0, -2 + Math.sin(a) * r0); ctx.lineTo(Math.cos(a) * (r0 + 5), -2 + Math.sin(a) * (r0 + 5)); ctx.stroke(); }
+  } else if (type === 'coffee') {              // cup with rising steam
+    ctx.fillStyle = '#e9ecf5'; rr(-8, -4, 16, 13, 3); ctx.fill();
+    ctx.strokeStyle = '#e9ecf5'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(9, 2, 4, -Math.PI / 2, Math.PI / 2); ctx.stroke();
+    ctx.fillStyle = '#6b3f1d'; rr(-6, -2, 12, 4, 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = 1.5;
+    for (let i = 0; i < 2; i++) { const o = (realTime * 1.2 + i * .5) % 1; ctx.globalAlpha = 1 - o;
+      ctx.beginPath(); ctx.moveTo(-3 + i * 6, -6 - o * 12); ctx.quadraticCurveTo(-6 + i * 6, -11 - o * 12, -3 + i * 6, -15 - o * 12); ctx.stroke(); }
+  }
+  ctx.restore();
+}
+
+function drawEvents() {
+  for (const ev of state.events) {
+    const d = EVENT_DEFS[ev.type], p = eventPos(ev), k = ev.t / ev.dur, left = 1 - k;
+    const urgent = left < .3;
+    // halo on the floor / behind the icon
+    ctx.save();
+    const pulse = .5 + .5 * Math.sin(realTime * (urgent ? 10 : 4));
+    const g = ctx.createRadialGradient(p.x, p.y, 2, p.x, p.y, 44);
+    g.addColorStop(0, hexA(d.color, .30 + pulse * .18)); g.addColorStop(1, hexA(d.color, 0));
+    ctx.fillStyle = g; ctx.fillRect(p.x - 46, p.y - 46, 92, 92);
+    ctx.restore();
+    drawEventIcon(ev.type, p.x, p.y, k);
+    // countdown ring, turns red when time is nearly out
+    ctx.save(); ctx.strokeStyle = 'rgba(0,0,0,.45)'; ctx.lineWidth = 3.5;
+    ctx.beginPath(); ctx.arc(p.x, p.y, 22, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = urgent ? '#ff5f6d' : d.color; ctx.lineWidth = 3.5; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.arc(p.x, p.y, 22, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * left); ctx.stroke(); ctx.restore();
+  }
+  // off-screen events: the camera is zoomed in, so point the player toward what they cannot see
+  const v = viewRect(), m = 34;
+  for (const ev of state.events) {
+    const p = eventPos(ev), d = EVENT_DEFS[ev.type];
+    if (p.x > v.x + m && p.x < v.x + v.w - m && p.y > v.y + m && p.y < v.y + v.h - m) continue;
+    const ax = clamp(p.x, v.x + m, v.x + v.w - m), ay = clamp(p.y, v.y + m, v.y + v.h - m);
+    const ang = Math.atan2(p.y - ay, p.x - ax);
+    ctx.save(); ctx.translate(ax, ay); ctx.rotate(ang);
+    ctx.fillStyle = d.color; ctx.shadowColor = d.color; ctx.shadowBlur = 10;
+    ctx.beginPath(); ctx.moveTo(15, 0); ctx.lineTo(-6, 9); ctx.lineTo(-2, 0); ctx.lineTo(-6, -9); ctx.closePath(); ctx.fill();
+    ctx.restore();
+    ctx.save(); ctx.globalAlpha = .95; drawEventIcon(ev.type, ax - Math.cos(ang) * 26, ay - Math.sin(ang) * 26, 0); ctx.restore();
+  }
+}
+
 function drawEffects() {
   for (const e of state.effects) {
     const k = clamp(e.t / e.dur, 0, 1);
     ctx.save();
     switch (e.type) {
-      case 'pop': { ctx.globalAlpha = 1 - k * k; ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.9)'; ctx.shadowBlur = 4; text(e.text, e.x, e.y - k * 44, e.size || 16, e.color, 'center', 800); ctx.restore(); break; }
+      case 'pop': {
+        const v = viewRect(), tx = v.x + v.w - 120, ty = v.y + 46;   // roughly where the cash chip sits
+        const u = easeOut(k);
+        const px = lerp(e.x, tx, u * u), py = lerp(e.y - 30, ty, u * u) - Math.sin(u * Math.PI) * 34;
+        ctx.globalAlpha = k < .12 ? k / .12 : 1 - Math.pow(k, 3);
+        ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.9)'; ctx.shadowBlur = 4;
+        text(e.text, px, py, (e.size || 16) * (1 - u * .35), e.color, 'center', 800); ctx.restore(); break; }
       case 'shard': {
         const x = lerp(e.from.x, e.to.x, k), y = lerp(e.from.y, e.to.y, k), ang = Math.atan2(e.to.y - e.from.y, e.to.x - e.from.x);
         ctx.shadowColor = e.color; ctx.shadowBlur = 12;
@@ -1295,6 +1741,7 @@ function drawEffects() {
       case 'wilt': { ctx.globalAlpha = 1 - k; for (let i = 0; i < 5; i++) { ctx.fillStyle = '#8bd98a'; ctx.save(); ctx.translate(e.x + (i - 2) * 9 + Math.sin(k * 5 + i) * 4, e.y + k * 40 + i * 3); ctx.rotate(k * 4 + i); ctx.beginPath(); ctx.ellipse(0, 0, 2.5, 5, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore(); } text('הצמיחה אופסה', e.x, e.y - 20, 11, '#8bd98a'); break; }
       case 'unlock': { ctx.globalAlpha = 1 - k; for (let i = 0; i < 14; i++) { const a = i / 14 * Math.PI * 2, r = easeOut(k) * 60; ctx.fillStyle = i % 3 === 0 ? '#fff' : (i % 3 === 1 ? e.color : '#ffd166'); ctx.beginPath(); ctx.arc(e.x + Math.cos(a) * r, e.y + Math.sin(a) * r * .6 - k * 20, 3, 0, Math.PI * 2); ctx.fill(); } ctx.strokeStyle = e.color; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(e.x, e.y, easeOut(k) * 50, 0, Math.PI * 2); ctx.stroke(); break; }
       case 'upgrade': { ctx.globalAlpha = 1 - k; ctx.strokeStyle = e.color; ctx.lineWidth = 3; rr(e.x - 100 - k * 20, e.y - 40 - k * 20, 200 + k * 40, 80 + k * 40, 14); ctx.stroke(); for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2; ctx.fillStyle = i % 2 ? e.color : '#fff'; ctx.beginPath(); ctx.arc(e.x + Math.cos(a) * (30 + k * 80), e.y + Math.sin(a) * (20 + k * 50) - k * 30, 3, 0, Math.PI * 2); ctx.fill(); } text('▲ שדרוג', e.x, e.y - 60 - k * 20, 15, e.color, 'center', 800); break; }
+      case 'evtSpawn': { ctx.globalAlpha = 1 - k; ctx.strokeStyle = e.color; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(e.x, e.y, 8 + easeOut(k) * 46, 0, Math.PI * 2); ctx.stroke(); break; }
       case 'openFlash': { ctx.globalAlpha = (1 - k) * .25; ctx.fillStyle = '#5dd6ff'; ctx.fillRect(FLOOR.x, FLOOR.y, FLOOR.w, FLOOR.h); break; }
     }
     ctx.restore();
@@ -1306,21 +1753,60 @@ function drawOverlays() {
   if (t && !state.menu) {
     let x, y, label;
     if (t.type === 'worker') { x = t.w.x; y = t.w.y - 98; label = 'רווח · דבר'; }
+    else if (t.type === 'event') { const q = eventPos(t.ev); x = q.x; y = q.y - 40; label = EVENT_DEFS[t.ev.type].hint; }
     else { x = FOUNDER.desk.x + FOUNDER.desk.w / 2; y = FOUNDER.desk.y - 46; label = 'רווח · עבודה'; }
     const bob = Math.sin(realTime * 4) * 2;
     ctx.fillStyle = 'rgba(255,209,102,.95)'; rr(x - 46, y - 12 + bob, 92, 24, 12); ctx.fill();
     text(label, x, y + 1 + bob, 13, '#2a1a05', 'center', 800);
     ctx.fillStyle = 'rgba(255,209,102,.95)'; ctx.beginPath(); ctx.moveTo(x - 5, y + 12 + bob); ctx.lineTo(x + 5, y + 12 + bob); ctx.lineTo(x, y + 18 + bob); ctx.closePath(); ctx.fill();
   }
-  // morning hint arrow toward open button when team is ready
-  if (state.phase === 'morning' && workingCount() >= activeSlots()) text('הצוות מוכן · לחץ "פותחים" למעלה', 640, FLOOR.y + 18, 13, 'rgba(159,240,255,.85)');
+  drawHint();
+}
+
+// הדרכה קצרה, רק ביום הראשון, ורק אם השחקן עצר ולא יודע מה לעשות
+function nextHint() {
+  if (state.day !== 1 || state.phase === 'summary' || state.phase === 'end') return null;
+  if (state.phase === 'morning') {
+    if (workingCount() < activeSlots()) {
+      const w = state.workers.filter(x => x.unlocked && !isStation(x.assignment))
+        .sort((a, b) => dist(state.player, a) - dist(state.player, b))[0];
+      if (w) return { x: w.x, y: w.y - 96, text: 'לך אליו ולחץ רווח', sub: 'כך בוחרים מי עובד ואיפה' };
+    }
+    return { x: 640, y: FLOOR.y + 34, text: 'הצוות מוכן — לחץ "פותחים" למעלה', up: true };
+  }
+  if (state.phase === 'work') {
+    if (state.events.length) { const e = state.events.find(x => !EVENT_DEFS[x.type].walkOver) || state.events[0];
+      const q = eventPos(e); return { x: q.x, y: q.y - 56, text: 'קרה משהו — לך לשם', sub: EVENT_DEFS[e.type].name }; }
+    if (state.founder.usesLeft === CONFIG.founderComputer.usesPerDay && founderCanUse().ok)
+      return { x: FOUNDER.desk.x + FOUNDER.desk.w / 2, y: FOUNDER.desk.y - 62, text: 'לך למחשב שלך', sub: 'תן דחיפה לתחנה שתבחר' };
+  }
+  return null;
+}
+function drawHint() {
+  if (state.idle < 3) return;
+  const h = nextHint(); if (!h) return;
+  const fade = clamp((state.idle - 3) / .6, 0, 1);
+  const bob = Math.sin(realTime * 3) * 5;
+  ctx.save(); ctx.globalAlpha = fade * .95;
+  const wdt = Math.max(150, h.text.length * 8 + 26);
+  ctx.fillStyle = 'rgba(10,6,30,.9)'; rr(h.x - wdt / 2, h.y - 20 + bob, wdt, h.sub ? 38 : 26, 12); ctx.fill();
+  ctx.strokeStyle = 'rgba(93,214,255,.75)'; ctx.lineWidth = 1.5; ctx.stroke();
+  text(h.text, h.x, h.y - 7 + bob, 13, '#bff1ff', 'center', 700);
+  if (h.sub) text(h.sub, h.x, h.y + 9 + bob, 11, 'rgba(167,154,208,.95)');
+  // arrow: up toward the HUD button, otherwise down at the thing in the world
+  ctx.fillStyle = 'rgba(93,214,255,.9)';
+  ctx.beginPath();
+  if (h.up) { ctx.moveTo(h.x - 7, h.y - 24 + bob); ctx.lineTo(h.x + 7, h.y - 24 + bob); ctx.lineTo(h.x, h.y - 34 + bob); }
+  else { const by = h.y + (h.sub ? 20 : 8) + bob; ctx.moveTo(h.x - 7, by); ctx.lineTo(h.x + 7, by); ctx.lineTo(h.x, by + 10); }
+  ctx.closePath(); ctx.fill(); ctx.restore();
 }
 
 /* ===================================================================================== */
 /* DEBUG / PLAYTEST HOOK (no gameplay effect) */
 window.SK = {
-  CONFIG, state, assign, openBusiness, endDay, nextDay, upgradeStation, founderFocus, startDay,
-  keys, findTarget, onInteract, closeMenu,
+  CONFIG, state, cam, viewRect, saveGame, applySave, readStore, clearSave, dayTarget, starsFor, assign, openBusiness, endDay, nextDay, upgradeStation, founderFocus, startDay,
+  keys, findTarget, onInteract, closeMenu, spawnEvent, resolveEvent, EVENT_DEFS, bugOn, stuckOn,
+  forceEvent(type) { for (let i = 0; i < 400; i++) { const n = state.events.length; spawnEvent(); const e = state.events[state.events.length - 1]; if (state.events.length > n && e.type === type) return e; if (state.events.length > n) state.events.pop(); } return null; },
   advance(sec) { const step = 0.05; let n = Math.round(sec / step); while (n-- > 0 && state.phase === 'work') { simTick(step); updateEffects(step); updateWorkers(step); } updateHUD(); renderTray(); },
   teleport(x, y) { state.player.x = x; state.player.y = y; state.target = findTarget(); },
   worker(id) { return state.workers.find(w => w.id === id); },
@@ -1328,7 +1814,47 @@ window.SK = {
 };
 
 /* ===================================================================================== */
+/* SAVE / LOAD — הכול עטוף ב-try/catch כדי שגלישה פרטית או חסימת אחסון לא ישברו את המשחק */
+function readStore() { try { const raw = localStorage.getItem(CONFIG.saveKey); return raw ? JSON.parse(raw) : null; } catch (e) { return null; } }
+function writeStore(o) { try { localStorage.setItem(CONFIG.saveKey, JSON.stringify(o)); return true; } catch (e) { return false; } }
+function clearSave() { try { const b = state.bestScore || 0; localStorage.setItem(CONFIG.saveKey, JSON.stringify({ best: b })); } catch (e) {} }
+
+function saveGame() {
+  writeStore({
+    v: 1, day: state.day, money: state.money, levels: { ...state.stationLevels },
+    confidence: state.confidence, stars: state.stars, totalEarned: state.totalEarned,
+    history: state.history.map(d => ({ day: d.day, total: d.total, stars: d.stars })),
+    workers: state.workers.map(w => ({ id: w.id, unlocked: w.unlocked, level: w.level, xp: w.xp, fatigue: w.fatigue })),
+    best: Math.max(state.bestScore || 0, state.totalEarned || 0),
+  });
+}
+function applySave(d) {
+  state.money = d.money || 0; state.stationLevels = { ...state.stationLevels, ...(d.levels || {}) };
+  state.confidence = d.confidence != null ? d.confidence : CONFIG.goals.confidenceStart;
+  state.stars = d.stars || []; state.totalEarned = d.totalEarned || 0; state.history = d.history || [];
+  state.lastDayStats = state.history.length ? state.history[state.history.length - 1] : null;
+  for (const sw of (d.workers || [])) { const w = state.workers.find(x => x.id === sw.id); if (!w) continue;
+    w.unlocked = !!sw.unlocked; w.level = sw.level || 1; w.xp = sw.xp || 0; w.fatigue = sw.fatigue || 0; }
+  startDay(clamp(d.day || 1, 1, CONFIG.totalDays));
+}
+
+/* ---------- opening gate: continue or start fresh ---------- */
+function bootGate() {
+  const saved = readStore();
+  state.bestScore = (saved && saved.best) || 0;
+  const canContinue = saved && saved.day && saved.day >= 1 && saved.day <= CONFIG.totalDays && saved.workers;
+  const btns = $('gateBtns');
+  btns.innerHTML = canContinue
+    ? `<button class="btn" id="contBtn">המשך · יום ${saved.day}</button><button class="btn ghost" id="freshBtn">שבוע חדש</button>`
+    : `<button class="btn" id="freshBtn">מתחילים</button>`;
+  $('gateBest').textContent = state.bestScore ? `השיא שלך: ${fmt(state.bestScore)}` : '';
+  const close = () => { $('gate').style.display = 'none'; };
+  if (canContinue) $('contBtn').onclick = () => { applySave(saved); close(); };
+  $('freshBtn').onclick = () => { clearSave(); startDay(1); close(); };
+}
+
 startDay(1);
+bootGate();
 requestAnimationFrame(frame);
 </script>
 </body>
