@@ -1509,86 +1509,97 @@ function drawCreature(kind, o) {
   const eo = { seed: o.seed || 0, tired, lid: C(o.lidColor || '#333'), sleep: o.sleep, look: o.working ? -0.6 : 0 };
   const happy = o.sleep ? .3 : (tired > .6 ? 0 : (tired > .3 ? .4 : 1));
   if (kind === 'player') {
-    /* דרקון-לוחם צעיר: עור תכלת בהיר מול שריון נייבי כהה עם קווי זוהר טורקיז,
-       ראש מוארך עם לסת, כתר קרניים כהה, ידיים פתוחות בתנוחת "מוכן". */
-    const SK_L = C('#6FC3EE'), SK_M = C('#2E8AC9'), SK_D = C('#123A5E');   // עור — בהיר אבל תמיד כחול, לא לבן
-    const AR_L = C('#3C5B78'), AR_M = C('#1B2E42'), AR_D = C('#0A1520');   // שריון כהה
-    const GLOW = C('#5FE8E0');                                            // קו זוהר טורקיז
+    /* דרקון-צעצוע כחול לפי FIGURE.png:
+       השריון באותו כחול כמו העור (רק תפרים כהים + פסי ניאון תכלת),
+       מניפת קוצים כחולה בצדי הראש, קרן כהה אחת למעלה, עיניים עם קשתית תכלת,
+       חיוך רחב, ידיים וטפרים אפורים-כהים, זנב ארוך מחוליות עם סנפיר תכלת. */
+    const L = C('#8FD2F2'), M = C('#4F97CD'), D = C('#2C5C8C'), DD = C('#1A3A5A');  // כחול
+    const SL = C('#41505F'), SD = C('#212B36');                                     // אפור-צפחה: קרן, ידיים, טפרים
+    const CY = C('#5FE6E2');                                                        // ניאון תכלת
     const step = o.walking ? Math.sin(t * 12) : 0;
-    const lx = -.36 * (o.facing < 0 ? -1 : 1);
-    const glow = (x1, y1, x2, y2, w) => { ctx.save(); ctx.globalAlpha = .8; ctx.shadowColor = GLOW; ctx.shadowBlur = 4;
-      ctx.strokeStyle = GLOW; ctx.lineWidth = w; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); ctx.restore(); };
+    const lx = -.34 * (o.facing < 0 ? -1 : 1);
+    const seam = (x1, y1, x2, y2, w) => { ctx.save(); ctx.globalAlpha = .85; ctx.shadowColor = CY; ctx.shadowBlur = 3.5;
+      ctx.strokeStyle = CY; ctx.lineWidth = w || 1.2; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); ctx.restore(); };
 
-    // ----- זנב, יוצא מבסיס הגוף (לא צף בנפרד) -----
-    ctx.save(); ctx.translate(-9, -13); ctx.rotate(Math.sin(t * 3) * .08 + .34);
-    ctx.beginPath(); ctx.moveTo(3, -5); ctx.quadraticCurveTo(-9, -6.5, -19, 0);
-    ctx.quadraticCurveTo(-9, 5, 3, 6); ctx.closePath();
-    const tg = ctx.createLinearGradient(3, -6, -19, 6); tg.addColorStop(0, SK_M); tg.addColorStop(1, SK_D);
-    ctx.fillStyle = tg; ctx.fill();
-    for (let i = 0; i < 3; i++) horn(-2 - i * 5, -4 + i * .4, -5 - i * 5, -9.5 - i * .4, 2.2 - i * .3, AR_L, AR_M, AR_D);
+    // ================= זנב: חוליות שהולכות וקטנות, קוצים כהים, סנפיר תכלת בקצה =================
+    ctx.save(); ctx.translate(-10, -15); ctx.rotate(Math.sin(t * 2.6) * .07);
+    const seg = [[0,0,6.4],[-7,1.6,5.8],[-13.5,3.4,5.1],[-19.5,4.6,4.4],[-25,4.6,3.6],[-29.5,3,2.9],[-32.5,0,2.2]];
+    for (let k = seg.length - 1; k >= 0; k--) { const [sx, sy, sr] = seg[k];
+      ctx.fillStyle = SD; ctx.beginPath();                                  // קוץ כהה על גב החוליה
+      ctx.moveTo(sx - sr * .5, sy - sr * .75); ctx.lineTo(sx - sr * .1, sy - sr * 1.75); ctx.lineTo(sx + sr * .45, sy - sr * .7); ctx.closePath(); ctx.fill();
+      orb(sx, sy, sr, sr * .92, L, M, D, lx, -.5); }
+    seam(-4, 2.4, -27, 6, 1.1);
+    ctx.fillStyle = CY; ctx.globalAlpha = .95;                              // סנפיר בקצה הזנב
+    ctx.beginPath(); ctx.moveTo(-33, -1); ctx.lineTo(-41, -7); ctx.lineTo(-37.5, .5); ctx.lineTo(-41, 6); ctx.closePath(); ctx.fill();
+    ctx.globalAlpha = 1; ctx.restore();
+
+    // ================= מניפת קוצים כחולה בצדי הראש (מאחורי הראש) =================
+    for (const sg of [-1, 1]) {
+      const fr = [[9, -64, 25, -78, 4.2], [11, -59, 29, -68, 3.8], [12, -54, 27, -58, 3.2]];
+      for (const [bx, by, tx, ty, w] of fr) horn(sg * bx, by, sg * tx, ty, w, L, M, D); }
+
+    // ================= רגליים =================
+    for (const sg of [-1, 1]) { const off = step * 2.4 * (sg > 0 ? 1 : -1);
+      orb(sg * 8.5 + off, -15.5, 7.2, 9, L, M, D, lx, -.5);                 // ירך
+      orb(sg * 9 + off, -7, 6.3, 6.4, L, M, D, lx, -.5);                    // שוק
+      seam(sg * 9 + off - 4, -9.5, sg * 9 + off - 4, -4.5, 1.1);
+      orb(sg * 9.5 + off, -2.6, 7.6, 4, L, M, D, lx, -.6);                  // כף רגל
+      for (let k = -1; k <= 1; k++) { ctx.fillStyle = SD;                    // טפרים כהים
+        ctx.beginPath(); ctx.ellipse(sg * 9.5 + off + k * 4, -1.2, 1.7, 2, 0, 0, Math.PI * 2); ctx.fill(); } }
+
+    // ================= גוף משוריין =================
+    orb(0, -28, 13.5, 15, L, M, D, lx, -.46);
+    ao(0, -15, 12, 6, .3);
+    ctx.save(); ctx.beginPath(); ctx.ellipse(0, -28, 13.5, 15, 0, 0, Math.PI * 2); ctx.clip();
+    ctx.strokeStyle = DD; ctx.globalAlpha = .5; ctx.lineWidth = 1.6;         // תפרים כהים בין הלוחיות
+    for (let k = 0; k < 3; k++) { ctx.beginPath(); ctx.ellipse(0, -34 + k * 6.5, 11, 4.6, 0, Math.PI * .06, Math.PI * .94); ctx.stroke(); }
+    ctx.globalAlpha = 1; ctx.fillStyle = SD;                                 // חגורת מפרק כהה
+    ctx.fillRect(-14, -18.5, 28, 4);
     ctx.restore();
+    seam(-7.5, -35, -7.5, -21, 1.2); seam(7.5, -35, 7.5, -21, 1.2);
+    seam(-6, -37.5, 6, -37.5, 1.1);
+    rimLight(0, -28, 13.5, 15, .3, Math.PI * 1.08, Math.PI * 1.62);
 
-    // ----- רגליים משוריינות, עומדות ברוחב -----
-    for (const sg of [-1, 1]) { const off = step * 2.6 * (sg > 0 ? 1 : -1);
-      orb(sg * 11 + off, -5, 6.6, 5.6, SK_L, SK_M, SK_D, lx, -.4);       // כף רגל
-      for (let k = -1; k <= 1; k++) { ctx.fillStyle = AR_M; ctx.beginPath(); ctx.moveTo(sg * 11 + off + k * 3.6, -8); ctx.lineTo(sg * 11 + off + k * 3.6 - 1.1, -2.5); ctx.lineTo(sg * 11 + off + k * 3.6 + 1.1, -2.5); ctx.closePath(); ctx.fill(); }
-      orb(sg * 10.5 + off * .5, -15, 7.2, 10.5, AR_L, AR_M, AR_D, lx, -.5);  // מגן שוק
-      glow(sg * 10.5 + off * .5 - 5, -18, sg * 10.5 + off * .5 - 5, -10, 1.6); }
-
-    // ----- גוף -----
-    orb(0, -25, 15, 17, SK_L, SK_M, SK_D, lx, -.46);
-    ao(0, -12, 13, 7, .32);
-    // לוחית חזה כהה גדולה
-    ctx.save();
-    ctx.beginPath(); ctx.moveTo(-11, -35); ctx.quadraticCurveTo(0, -31, 11, -35);
-    ctx.quadraticCurveTo(10, -18, 0, -12); ctx.quadraticCurveTo(-10, -18, -11, -35); ctx.closePath(); ctx.clip();
-    const cg = ctx.createLinearGradient(-11, -35, 9, -12); cg.addColorStop(0, AR_L); cg.addColorStop(.55, AR_M); cg.addColorStop(1, AR_D);
-    ctx.fillStyle = cg; ctx.fillRect(-16, -40, 32, 34);
-    ctx.restore();
-    glow(-6, -30, -6, -16, 1.4); glow(6, -30, 6, -16, 1.4);
-    glow(-8, -32, 8, -32, 1.2);
-    rimLight(0, -25, 15, 17, .28, Math.PI * 1.08, Math.PI * 1.6);
-
-    // ----- כתפיות בולטות -----
-    for (const sg of [-1, 1]) { orb(sg * 14, -34, 7, 6.4, AR_L, AR_M, AR_D, lx, -.55); glow(sg * (14 - 4), -37, sg * (14 + 3), -33, 1.3); }
-
-    // ----- ידיים פתוחות בתנוחת "מוכן" -----
-    for (const sg of [-1, 1]) { const ay = o.walking ? Math.sin(t * 12 + (sg > 0 ? 0 : Math.PI)) * 2.2 : Math.sin(t * 1.6) * 1;
-      ctx.save(); ctx.translate(sg * 15.5, -25 + ay); ctx.rotate(sg * .55);
-      orb(0, 0, 4.6, 9, SK_L, SK_M, SK_D, lx, -.5);                 // עליון-זרוע
-      orb(0, 10, 4.2, 6.6, AR_L, AR_M, AR_D, lx, -.5);              // גאנטלט
-      ctx.fillStyle = SK_M;                                          // כף יד + טפרים
-      for (let k = -1; k <= 1; k++) { ctx.beginPath(); ctx.moveTo(k * 2.6, 14); ctx.lineTo(k * 2.6 - .8, 19); ctx.lineTo(k * 2.6 + .8, 19); ctx.closePath(); ctx.fill(); }
+    // ================= זרועות פתוחות עם ידיים כהות =================
+    for (const sg of [-1, 1]) { const ay = o.walking ? Math.sin(t * 12 + (sg > 0 ? 0 : Math.PI)) * 2.2 : Math.sin(t * 1.7) * 1.1;
+      orb(sg * 13.5, -37 + ay * .3, 6.8, 5.8, L, M, D, lx, -.55);            // כתפייה
+      orb(sg * 19, -32.5 + ay, 5, 5.8, L, M, D, lx, -.5);                    // זרוע עליונה
+      orb(sg * 24, -28 + ay, 4.6, 5.2, L, M, D, lx * .5, -.5);               // אמה — יוצאת החוצה־למעלה
+      seam(sg * 24 - sg * 2.4, -30 + ay, sg * 24 - sg * 2.4, -25.5 + ay, 1.1);
+      ctx.save(); ctx.translate(sg * 28.5, -23.5 + ay); ctx.rotate(sg * -.5);  // כף יד פתוחה, אצבעות פרושות
+      orb(0, 0, 4.2, 3.9, SL, SD, SD, lx, -.5);
+      for (let k = -1; k <= 1; k++) { ctx.fillStyle = SD;
+        ctx.beginPath(); ctx.ellipse(k * 2.6, 4.1, 1.5, 2.7, k * .3, 0, Math.PI * 2); ctx.fill(); }
       ctx.restore(); }
 
-    // ----- כתר קרניים (מאחורי הראש) -----
-    horn(-6, -56, -20, -74, 4.6, AR_L, AR_M, AR_D);
-    horn(5, -58, 4, -80, 5, AR_L, AR_M, AR_D);
-    horn(15, -55, 26, -73, 4.2, AR_L, AR_M, AR_D);
-    horn(-15, -50, -30, -58, 3.4, AR_L, AR_M, AR_D);
-    horn(16, -48, 30, -54, 3.4, AR_L, AR_M, AR_D);
+    // ================= ראש =================
+    ao(0, -40, 11, 4.5, .28);
+    orb(0, -58, 17, 15, L, M, D, lx, -.5);                                   // גולגולת
+    orb(0, -47.5, 10, 7, L, M, D, lx, -.25);                                 // חוטם קצר ועגול
+    // קרן כהה בודדת על הקודקוד
+    horn(1, -71, -3, -85, 3.4, SL, SD, SD);
+    // רכסי גבה מוגבהים מעל העיניים
+    for (const sg of [-1, 1]) { ctx.save(); ctx.globalAlpha = .55; ctx.fillStyle = D;
+      ctx.beginPath(); ctx.ellipse(sg * 7.4, -64.5, 6.2, 2.6, sg * .22, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
+    ctx.fillStyle = DD;                                                       // נחיריים
+    for (const sg of [-1, 1]) { ctx.beginPath(); ctx.ellipse(sg * 3.3, -46, 1.2, .95, 0, 0, Math.PI * 2); ctx.fill(); }
+    rimLight(0, -58, 17, 15, .32, Math.PI * 1.1, Math.PI * 1.72);
 
-    // ----- ראש: גולגולת עגולה + חוטם ממורכז שבולט קדימה (לא הצידה — כדי שהפרצוף יישאר קדמי-סימטרי) -----
-    ao(0, -34, 12, 5, .3);
-    orb(0, -53, 14.5, 12.5, SK_L, SK_M, SK_D, lx, -.5);          // גולגולת/קודקוד
-    orb(0, -40.5, 10.5, 9, SK_L, SK_M, SK_D, lx, -.2);           // חוטם ממורכז — מואר מהחזית
-    ao(0, -34, 8.5, 3.4, .26);                                    // צל מתחת לחוטם -> מפריד אותו מהגוף
-    // מגן-מצח כהה מעל העיניים
-    ctx.fillStyle = AR_M; ctx.beginPath();
-    ctx.moveTo(-13, -60); ctx.quadraticCurveTo(0, -65.5, 13, -60); ctx.quadraticCurveTo(8, -55.5, 0, -55); ctx.quadraticCurveTo(-8, -55.5, -13, -60);
-    ctx.closePath(); ctx.fill();
-    ctx.fillStyle = C('#173F63');                                 // נחיריים
-    ctx.beginPath(); ctx.ellipse(-3.4, -38.5, 1.3, 1, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(3.4, -38.5, 1.3, 1, 0, 0, Math.PI * 2); ctx.fill();
-    rimLight(0, -53, 14.5, 12.5, .3, Math.PI * 1.12, Math.PI * 1.7);
-    rimLight(0, -40.5, 10.5, 9, .22, Math.PI * 1.15, Math.PI * 1.6);
+    // עיניים גדולות עם קשתית תכלת (לא ה-eyes() הרגיל — צריך אישון תכלת כמו ברפרנס)
+    const blink = ((realTime * 1.1 + (o.seed || 0)) % 3.7) < .12;
+    for (const sg of [-1, 1]) { const ex = sg * 7.4, ey = -58.5;
+      if (blink) { ctx.strokeStyle = DD; ctx.lineWidth = 1.6; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(ex - 4, ey); ctx.lineTo(ex + 4, ey); ctx.stroke(); continue; }
+      ctx.fillStyle = '#f2f7fb'; ctx.beginPath(); ctx.ellipse(ex, ey, 4.6, 5, sg * .08, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = C('#37C9D2'); ctx.beginPath(); ctx.arc(ex + sg * .5, ey + .4, 3.2, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = C('#12303F'); ctx.beginPath(); ctx.arc(ex + sg * .5, ey + .4, 1.7, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ex - 1.4, ey - 1.8, 1.5, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = .7; ctx.beginPath(); ctx.arc(ex + 1.6, ey + 2, .8, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; }
 
-    // עיניים — סימטריות משני צדי החוטם
-    ctx.save(); ctx.strokeStyle = 'rgba(10,20,35,.55)'; ctx.lineWidth = 1.2;
-    for (const ex of [-8, 8]) { ctx.beginPath(); ctx.arc(ex, -53.5, 2.7, 0, Math.PI * 2); ctx.stroke(); }
-    ctx.restore();
-    eyes(-8, 8, -53.5, 2.4, eo);
-    mouth(0, -37, 2.8, o.walking ? 1 : happy);
+    // חיוך רחב וידידותי
+    ctx.strokeStyle = C('#12303F'); ctx.lineWidth = 1.5; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.arc(0, -47, 6.6, Math.PI * .16, Math.PI * .84); ctx.stroke();
   }
   else if (kind === 'iron') {
     const bodyC = C('#3d6bff');
