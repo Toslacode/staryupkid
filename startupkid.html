@@ -1436,6 +1436,40 @@ function drawCooler() {
 
 /* ---------- creatures ---------- */
 function shadow(x, y, w) { ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(x, y + 2, w, w * .38, 0, 0, Math.PI * 2); ctx.fill(); }
+
+/* ---- כלים לציור "תלת-ממדי רך": כל צורה מקבלת אור, צל ונפח במקום צבע שטוח ---- */
+// אליפסה מוצללת כמו כדור מואר — נקודת האור מוסטת לכיוון המקור
+function orb(x, y, rx, ry, lit, mid, dark, lx, ly) {
+  const R = Math.max(rx, ry);
+  const g = ctx.createRadialGradient(x + rx * (lx === undefined ? -.36 : lx), y + ry * (ly === undefined ? -.44 : ly), R * .05, x, y, R * 1.15);
+  g.addColorStop(0, lit); g.addColorStop(.42, mid); g.addColorStop(1, dark);
+  ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
+}
+// צל מגע רך במקום שבו שתי צורות נפגשות (Ambient Occlusion)
+function ao(x, y, rx, ry, a) {
+  const g = ctx.createRadialGradient(x, y, 0, x, y, Math.max(rx, ry));
+  g.addColorStop(0, `rgba(10,26,48,${a === undefined ? .3 : a})`); g.addColorStop(1, 'rgba(10,26,48,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
+}
+// קרן/סנפיר מחודד עם קצה מעוגל וגרדיאנט לרוחב — קונוס, לא משולש שטוח
+function horn(bx, by, tx, ty, w, lit, mid, dark) {
+  const ang = Math.atan2(ty - by, tx - bx), nx = Math.cos(ang + Math.PI / 2), ny = Math.sin(ang + Math.PI / 2);
+  const mx = lerp(bx, tx, .55), my = lerp(by, ty, .55);
+  ctx.beginPath();
+  ctx.moveTo(bx + nx * w, by + ny * w);
+  ctx.quadraticCurveTo(mx + nx * w * .72, my + ny * w * .72, tx, ty);
+  ctx.quadraticCurveTo(mx - nx * w * .72, my - ny * w * .72, bx - nx * w, by - ny * w);
+  ctx.closePath();
+  const g = ctx.createLinearGradient(bx + nx * w, by + ny * w, bx - nx * w, by - ny * w);
+  g.addColorStop(0, lit); g.addColorStop(.5, mid); g.addColorStop(1, dark);
+  ctx.fillStyle = g; ctx.fill();
+}
+// הבהוב אור על הקצה העליון — מה שנותן את התחושה שיש נפח ולא מדבקה
+function rimLight(x, y, rx, ry, a, from, to) {
+  ctx.save(); ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.clip();
+  ctx.strokeStyle = `rgba(255,255,255,${a})`; ctx.lineWidth = 3.2;
+  ctx.beginPath(); ctx.ellipse(x, y, rx - 1, ry - 1, 0, from, to); ctx.stroke(); ctx.restore();
+}
 function desat(hex, f) { // f = 0..1 how much to desaturate
   const n = parseInt(hex.slice(1), 16); let r = n >> 16, g = (n >> 8) & 255, b = n & 255; const l = 0.3 * r + 0.59 * g + 0.11 * b;
   r = lerp(r, l * .85, f); g = lerp(g, l * .85, f); b = lerp(b, l * .85, f); return `rgb(${r | 0},${g | 0},${b | 0})`;
@@ -1475,65 +1509,79 @@ function drawCreature(kind, o) {
   const eo = { seed: o.seed || 0, tired, lid: C(o.lidColor || '#333'), sleep: o.sleep, look: o.working ? -0.6 : 0 };
   const happy = o.sleep ? .3 : (tired > .6 ? 0 : (tired > .3 ? .4 : 1));
   if (kind === 'player') {
-    // דרקון כחול משוריין — הדמות של השחקן
-    const SKIN = '#46a3e6', DARK = '#2464a6', BELLY = '#a9dcf7', PLATE = '#1d4c84', SPIKE = '#2f7cbb';
-    // זנב עם קשקשי גב, מתנועע
-    ctx.save(); ctx.translate(-14, -15); ctx.rotate(Math.sin(t * 4) * .2 - .35);
-    ctx.fillStyle = C(DARK); ctx.beginPath(); ctx.moveTo(4, -7); ctx.quadraticCurveTo(-14, -12, -27, 0);
-    ctx.quadraticCurveTo(-14, 3, 4, 7); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = C(SPIKE);
-    for (let i = 0; i < 3; i++) { const px = -4 - i * 7, py = -7 + i * 2.2;
-      ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px - 3.5, py - 8 + i * 1.5); ctx.lineTo(px - 7, py + 0.5); ctx.closePath(); ctx.fill(); }
+    /* דרקון כחול צ'יבי — מצויר בהצללה רכה שמדמה נפח, לא בצורות שטוחות.
+       פרופורציה: ראש גדול (~חצי מהגובה) מעל גוף קטן ועגול, כמו ברפרנס. */
+    const SK_L = C('#B4E4FA'), SK_M = C('#4FA3DE'), SK_D = C('#22537F');   // עור
+    const BL_L = C('#FFFFFF'), BL_M = C('#DCEEF8'), BL_D = C('#9DC0D6');   // בטן/לסת
+    const HN_L = C('#9BCBE8'), HN_M = C('#3D7CAF'), HN_D = C('#173F66');   // קרניים/סנפירים
+    const step = o.walking ? Math.sin(t * 12) : 0;
+    // האור תמיד מגיע מאותו צד בעולם, גם כשהדמות מסתובבת
+    const lx = -.36 * (o.facing < 0 ? -1 : 1);
+
+    // ----- זנב (מאחור) -----
+    ctx.save(); ctx.translate(-12, -19); ctx.rotate(Math.sin(t * 3) * .12 + .12);
+    for (let i = 0; i < 3; i++) { const fs = 4.6 - i * .9; horn(-5 - i * 7, 1 + i * 2, -7 - i * 7, -9 - i * 1.5 + fs, fs * .8, HN_L, HN_M, HN_D); }
+    ctx.beginPath(); ctx.moveTo(5, -8); ctx.quadraticCurveTo(-11, -10, -25, 1);
+    ctx.quadraticCurveTo(-11, 6, 5, 8); ctx.closePath();
+    const tg = ctx.createLinearGradient(0, -11, 0, 8); tg.addColorStop(0, SK_L); tg.addColorStop(.5, SK_M); tg.addColorStop(1, SK_D);
+    ctx.fillStyle = tg; ctx.fill(); ctx.restore();
+
+    // ----- סנפירי גב (מאחורי הגוף) -----
+    for (let i = 0; i < 3; i++) { const bx = -6 - i * 5, by = -34 + i * 5, fs = 4.4 - i * .7; horn(bx, by, bx - 5, by - 8, fs * .8, HN_L, HN_M, HN_D); }
+
+    // ----- רגליים -----
+    for (const sg of [-1, 1]) { const off = step * 3.5 * (sg > 0 ? 1 : -1);
+      orb(sg * 8 + off, -6, 7.6, 6.4, SK_L, SK_M, SK_D, lx, -.5);
+      for (let k = -1; k <= 1; k++) { orb(sg * 8 + off + k * 4.2, -2.2, 2.1, 1.9, BL_L, BL_M, BL_D, lx, -.4); } }
+
+    // ----- גוף קטן ועגול -----
+    orb(0, -22, 15.5, 16.5, SK_L, SK_M, SK_D, lx, -.46);
+    ao(0, -10, 14, 8, .3);                                   // צל מגע מעל הרגליים
+    orb(1, -19, 10, 11.5, BL_L, BL_M, BL_D, lx, -.5);        // בטן בהירה
+    // לוחיות שריון רכות על החזה
+    ctx.save(); ctx.globalAlpha = .62;
+    for (let i = 0; i < 3; i++) { ctx.strokeStyle = C('#79A5C2'); ctx.lineWidth = 1.3;
+      ctx.beginPath(); ctx.ellipse(1, -14 - i * 5.4, 8.6 - i * 1.1, 3.1, 0, Math.PI * .1, Math.PI * .9); ctx.stroke(); }
     ctx.restore();
-    // כנפיים קטנות מקופלות
-    for (const sgn of [-1, 1]) { ctx.save(); ctx.translate(sgn * 13, -36); ctx.rotate(sgn * (.55 + Math.sin(t * 2.5) * .07));
-      ctx.fillStyle = C(PLATE); ctx.beginPath(); ctx.moveTo(0, 0);
-      ctx.quadraticCurveTo(sgn * 13, -11, sgn * 17, 3); ctx.quadraticCurveTo(sgn * 8, 1, 0, 9); ctx.closePath(); ctx.fill(); ctx.restore(); }
-    // רגליים וטפרים
-    for (const sgn of [-1, 1]) { const off = o.walking ? Math.sin(t * 12 + (sgn > 0 ? Math.PI : 0)) * 4 : 0;
-      ctx.fillStyle = C(DARK); ctx.beginPath(); ctx.ellipse(sgn * 9 + off, -4, 7.5, 5, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = C(BELLY); for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.arc(sgn * 9 + off + i * 4, -1.6, 1.5, 0, Math.PI * 2); ctx.fill(); } }
-    // גוף
-    const g = ctx.createLinearGradient(0, -46, 0, -4); g.addColorStop(0, C(SKIN)); g.addColorStop(1, C(DARK));
-    ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, -24, 18, 21, 0, 0, Math.PI * 2); ctx.fill();
-    // בטן בהירה עם פסים
-    ctx.fillStyle = C(BELLY); ctx.beginPath(); ctx.ellipse(0, -19, 11, 13, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = C('#7cc4ea'); ctx.lineWidth = 1;
-    for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.moveTo(-8, -25 + i * 6); ctx.lineTo(8, -25 + i * 6); ctx.stroke(); }
-    // שריון חזה
-    ctx.fillStyle = C(PLATE); ctx.beginPath();
-    ctx.moveTo(-13, -37); ctx.lineTo(13, -37); ctx.lineTo(10, -27); ctx.lineTo(0, -22); ctx.lineTo(-10, -27); ctx.closePath(); ctx.fill();
-    // אבן זוהרת בחזה — הסימן שזו הדמות שלך
-    ctx.save(); ctx.shadowColor = '#ffd166'; ctx.shadowBlur = 8 + Math.sin(t * 4) * 4;
-    ctx.fillStyle = '#ffd166'; ctx.beginPath(); ctx.moveTo(0, -36); ctx.lineTo(4.5, -30.5); ctx.lineTo(0, -25); ctx.lineTo(-4.5, -30.5); ctx.closePath(); ctx.fill(); ctx.restore();
-    // כתפיות עם קוצים
-    for (const sgn of [-1, 1]) { ctx.fillStyle = C(PLATE); rr(sgn > 0 ? 11 : -21, -41, 10, 13, 5); ctx.fill();
-      ctx.fillStyle = C(SPIKE); ctx.beginPath(); ctx.moveTo(sgn * 16, -41); ctx.lineTo(sgn * 22, -49); ctx.lineTo(sgn * 20, -38); ctx.closePath(); ctx.fill(); }
-    // זרועות עם טפרים קדימה
-    for (const sgn of [-1, 1]) { const ay = o.walking ? Math.sin(t * 12 + (sgn > 0 ? 0 : Math.PI)) * 3 : Math.sin(t * 2) * 1.5;
-      ctx.fillStyle = C(SKIN); ctx.beginPath(); ctx.ellipse(sgn * 18, -23 + ay, 5, 8, sgn * .25, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = C(BELLY);
-      for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.arc(sgn * 19 + i * 2.6, -16 + ay, 1.6, 0, Math.PI * 2); ctx.fill(); } }
-    // קרניים אחורה — בסיס כהה עם קצה בהיר, כדי שייקראו כקרניים ולא כרעמה
-    const horns = [[-6, -59, -21, -74, -11, -55], [4, -61, -3, -80, 13, -56],
-                   [-15, -52, -32, -58, -14, -46], [15, -52, 31, -56, 14, -46]];
-    horns.forEach(h => { ctx.fillStyle = C(SPIKE);
-      ctx.beginPath(); ctx.moveTo(h[0], h[1]); ctx.lineTo(h[2], h[3]); ctx.lineTo(h[4], h[5]); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = C('#8fd0f2');
-      ctx.beginPath(); ctx.moveTo(h[2], h[3]); ctx.lineTo(lerp(h[2], h[0], .42), lerp(h[3], h[1], .42));
-      ctx.lineTo(lerp(h[2], h[4], .42), lerp(h[3], h[5], .42)); ctx.closePath(); ctx.fill(); });
-    // ראש
-    ctx.fillStyle = C(SKIN); ctx.beginPath(); ctx.ellipse(0, -48, 17, 15, 0, 0, Math.PI * 2); ctx.fill();
-    // חוטם בולט קדימה
-    ctx.fillStyle = C(SKIN); ctx.beginPath(); ctx.ellipse(9, -44, 11, 8, .1, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = C(BELLY); ctx.beginPath(); ctx.ellipse(10, -41, 9.5, 5.5, .1, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = C(PLATE); ctx.beginPath(); ctx.arc(16, -46, 1.4, 0, Math.PI * 2); ctx.fill();
-    // גבה משוריינת מעל העיניים
-    ctx.fillStyle = C(DARK); rr(-14, -57, 28, 6, 3); ctx.fill();
-    eyes(-6, 7, -50, 5, eo);
-    mouth(5, -38, 4, o.walking ? 1 : happy);
-    // ניב קטן
-    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.moveTo(9, -39); ctx.lineTo(11, -35); ctx.lineTo(7, -38); ctx.closePath(); ctx.fill();
+    rimLight(0, -22, 15.5, 16.5, .3, Math.PI * 1.08, Math.PI * 1.62);
+
+    // ----- זרועות קטנות בצדדים -----
+    for (const sg of [-1, 1]) { const ay = o.walking ? Math.sin(t * 12 + (sg > 0 ? 0 : Math.PI)) * 2.4 : Math.sin(t * 1.8) * 1.2;
+      ctx.save(); ctx.translate(sg * 14.5, -21 + ay); ctx.rotate(sg * .3);
+      orb(0, 0, 4.6, 6.6, SK_L, SK_M, SK_D, lx, -.5);
+      for (let k = -1; k <= 1; k++) orb(k * 2.5, 6, 1.7, 1.6, BL_L, BL_M, BL_D, lx, -.4);
+      ctx.restore(); }
+    // כתפיות משוריינות
+    for (const sg of [-1, 1]) { orb(sg * 12.5, -30.5, 6.8, 5.4, HN_L, HN_M, HN_D, lx, -.55);
+      rimLight(sg * 12.5, -30.5, 6.8, 5.4, .35, Math.PI * 1.05, Math.PI * 1.75); }
+
+    // ----- קרניים (מאחורי הראש) -----
+    horn(-7, -55, -22, -70, 4.2, HN_L, HN_M, HN_D);
+    horn(4, -57, 1, -76, 4.6, HN_L, HN_M, HN_D);
+    horn(-15, -48, -30, -53, 3.2, HN_L, HN_M, HN_D);
+    horn(15, -48, 29, -51, 3.2, HN_L, HN_M, HN_D);
+
+    // ----- ראש גדול -----
+    ao(0, -36, 13, 6, .34);                                  // צל מתחת לסנטר
+    orb(0, -49, 19.5, 17.5, SK_L, SK_M, SK_D, lx, -.46);
+    // לחיים/סנפירי אוזן
+    for (const sg of [-1, 1]) orb(sg * 18, -48, 4.6, 6.4, SK_L, SK_M, SK_D, lx, -.5);
+    // חוטם קצר ועגול — קטן מספיק כדי שהעיניים והפה יישארו קריאים
+    orb(10, -40.5, 8.6, 6.6, SK_L, SK_M, SK_D, lx, -.5);
+    orb(11, -39.5, 7, 4.8, BL_L, BL_M, BL_D, lx, -.5);
+    ctx.fillStyle = C('#2C5E85'); ctx.beginPath(); ctx.ellipse(15.5, -42, 1.4, 1.1, .3, 0, Math.PI * 2); ctx.fill();
+    rimLight(0, -49, 19.5, 17.5, .34, Math.PI * 1.05, Math.PI * 1.7);
+
+    // ----- עיניים גדולות ומבריקות -----
+    eyes(-6, 7.5, -52, 6.4, eo);
+    ctx.save(); ctx.globalAlpha = .9; ctx.fillStyle = '#fff';
+    for (const ex of [-6, 7.5]) { ctx.beginPath(); ctx.ellipse(ex - 2.5, -54.8, 2.5, 1.8, -.5, 0, Math.PI * 2); ctx.fill(); }
+    ctx.restore();
+    // גבה קלה מעל כל עין
+    ctx.save(); ctx.globalAlpha = .32; ctx.strokeStyle = C('#17456F'); ctx.lineWidth = 2.4; ctx.lineCap = 'round';
+    for (const ex of [-6, 7.5]) { ctx.beginPath(); ctx.arc(ex, -52, 8, Math.PI * 1.18, Math.PI * 1.72); ctx.stroke(); }
+    ctx.restore();
+    mouth(10.5, -35.5, 3.4, o.walking ? 1 : happy);
   }
   else if (kind === 'iron') {
     const bodyC = C('#3d6bff');
