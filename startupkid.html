@@ -1475,21 +1475,65 @@ function drawCreature(kind, o) {
   const eo = { seed: o.seed || 0, tired, lid: C(o.lidColor || '#333'), sleep: o.sleep, look: o.working ? -0.6 : 0 };
   const happy = o.sleep ? .3 : (tired > .6 ? 0 : (tired > .3 ? .4 : 1));
   if (kind === 'player') {
-    // tail
-    ctx.save(); ctx.translate(-14, -14); ctx.rotate(Math.sin(t * 5) * .25 - .6); ctx.fillStyle = C('#ff5fb0'); ctx.beginPath(); ctx.ellipse(-10, 0, 14, 7, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = C('#ffd166'); ctx.beginPath(); ctx.ellipse(-20, 0, 5, 5, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-    // ears
-    for (const s of [-1, 1]) { ctx.fillStyle = C('#e84a9c'); ctx.beginPath(); ctx.moveTo(s * 6, -38); ctx.lineTo(s * 14, -64); ctx.lineTo(s * 17, -40); ctx.closePath(); ctx.fill(); ctx.save(); ctx.shadowColor = '#5dd6ff'; ctx.shadowBlur = 10; ctx.fillStyle = '#9ff0ff'; ctx.beginPath(); ctx.arc(s * 14, -62, 3.5, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
-    // body
-    const g = ctx.createLinearGradient(0, -48, 0, 0); g.addColorStop(0, C('#ff6fbd')); g.addColorStop(1, C('#c53f92'));
-    ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, -24, 19, 23, 0, 0, Math.PI * 2); ctx.fill();
-    // hoodie
-    ctx.fillStyle = C('#3a2a7a'); ctx.beginPath(); ctx.ellipse(0, -14, 17, 12, 0, 0, Math.PI); ctx.fill(); ctx.fillStyle = C('#5dd6ff'); ctx.fillRect(-4, -14, 1.5, 9); ctx.fillRect(3, -14, 1.5, 9);
-    ctx.fillStyle = C('#ffd166'); ctx.beginPath(); ctx.moveTo(0, -12); ctx.lineTo(3, -6); ctx.lineTo(-3, -6); ctx.closePath(); ctx.fill();
-    eyes(-7, 7, -30, 5.2, eo);
-    ctx.fillStyle = 'rgba(255,120,170,.6)'; ctx.beginPath(); ctx.arc(-12, -23, 3, 0, Math.PI * 2); ctx.arc(12, -23, 3, 0, Math.PI * 2); ctx.fill();
-    mouth(0, -21, 4, o.walking ? 1 : happy);
-    // feet
-    ctx.fillStyle = C('#8d2a66'); ctx.beginPath(); ctx.ellipse(-8 + (o.walking ? Math.sin(t * 12) * 4 : 0), -2, 6, 3, 0, 0, Math.PI * 2); ctx.ellipse(8 - (o.walking ? Math.sin(t * 12) * 4 : 0), -2, 6, 3, 0, 0, Math.PI * 2); ctx.fill();
+    // דרקון כחול משוריין — הדמות של השחקן
+    const SKIN = '#46a3e6', DARK = '#2464a6', BELLY = '#a9dcf7', PLATE = '#1d4c84', SPIKE = '#2f7cbb';
+    // זנב עם קשקשי גב, מתנועע
+    ctx.save(); ctx.translate(-14, -15); ctx.rotate(Math.sin(t * 4) * .2 - .35);
+    ctx.fillStyle = C(DARK); ctx.beginPath(); ctx.moveTo(4, -7); ctx.quadraticCurveTo(-14, -12, -27, 0);
+    ctx.quadraticCurveTo(-14, 3, 4, 7); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = C(SPIKE);
+    for (let i = 0; i < 3; i++) { const px = -4 - i * 7, py = -7 + i * 2.2;
+      ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px - 3.5, py - 8 + i * 1.5); ctx.lineTo(px - 7, py + 0.5); ctx.closePath(); ctx.fill(); }
+    ctx.restore();
+    // כנפיים קטנות מקופלות
+    for (const sgn of [-1, 1]) { ctx.save(); ctx.translate(sgn * 13, -36); ctx.rotate(sgn * (.55 + Math.sin(t * 2.5) * .07));
+      ctx.fillStyle = C(PLATE); ctx.beginPath(); ctx.moveTo(0, 0);
+      ctx.quadraticCurveTo(sgn * 13, -11, sgn * 17, 3); ctx.quadraticCurveTo(sgn * 8, 1, 0, 9); ctx.closePath(); ctx.fill(); ctx.restore(); }
+    // רגליים וטפרים
+    for (const sgn of [-1, 1]) { const off = o.walking ? Math.sin(t * 12 + (sgn > 0 ? Math.PI : 0)) * 4 : 0;
+      ctx.fillStyle = C(DARK); ctx.beginPath(); ctx.ellipse(sgn * 9 + off, -4, 7.5, 5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = C(BELLY); for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.arc(sgn * 9 + off + i * 4, -1.6, 1.5, 0, Math.PI * 2); ctx.fill(); } }
+    // גוף
+    const g = ctx.createLinearGradient(0, -46, 0, -4); g.addColorStop(0, C(SKIN)); g.addColorStop(1, C(DARK));
+    ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, -24, 18, 21, 0, 0, Math.PI * 2); ctx.fill();
+    // בטן בהירה עם פסים
+    ctx.fillStyle = C(BELLY); ctx.beginPath(); ctx.ellipse(0, -19, 11, 13, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = C('#7cc4ea'); ctx.lineWidth = 1;
+    for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.moveTo(-8, -25 + i * 6); ctx.lineTo(8, -25 + i * 6); ctx.stroke(); }
+    // שריון חזה
+    ctx.fillStyle = C(PLATE); ctx.beginPath();
+    ctx.moveTo(-13, -37); ctx.lineTo(13, -37); ctx.lineTo(10, -27); ctx.lineTo(0, -22); ctx.lineTo(-10, -27); ctx.closePath(); ctx.fill();
+    // אבן זוהרת בחזה — הסימן שזו הדמות שלך
+    ctx.save(); ctx.shadowColor = '#ffd166'; ctx.shadowBlur = 8 + Math.sin(t * 4) * 4;
+    ctx.fillStyle = '#ffd166'; ctx.beginPath(); ctx.moveTo(0, -36); ctx.lineTo(4.5, -30.5); ctx.lineTo(0, -25); ctx.lineTo(-4.5, -30.5); ctx.closePath(); ctx.fill(); ctx.restore();
+    // כתפיות עם קוצים
+    for (const sgn of [-1, 1]) { ctx.fillStyle = C(PLATE); rr(sgn > 0 ? 11 : -21, -41, 10, 13, 5); ctx.fill();
+      ctx.fillStyle = C(SPIKE); ctx.beginPath(); ctx.moveTo(sgn * 16, -41); ctx.lineTo(sgn * 22, -49); ctx.lineTo(sgn * 20, -38); ctx.closePath(); ctx.fill(); }
+    // זרועות עם טפרים קדימה
+    for (const sgn of [-1, 1]) { const ay = o.walking ? Math.sin(t * 12 + (sgn > 0 ? 0 : Math.PI)) * 3 : Math.sin(t * 2) * 1.5;
+      ctx.fillStyle = C(SKIN); ctx.beginPath(); ctx.ellipse(sgn * 18, -23 + ay, 5, 8, sgn * .25, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = C(BELLY);
+      for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.arc(sgn * 19 + i * 2.6, -16 + ay, 1.6, 0, Math.PI * 2); ctx.fill(); } }
+    // קרניים אחורה — בסיס כהה עם קצה בהיר, כדי שייקראו כקרניים ולא כרעמה
+    const horns = [[-6, -59, -21, -74, -11, -55], [4, -61, -3, -80, 13, -56],
+                   [-15, -52, -32, -58, -14, -46], [15, -52, 31, -56, 14, -46]];
+    horns.forEach(h => { ctx.fillStyle = C(SPIKE);
+      ctx.beginPath(); ctx.moveTo(h[0], h[1]); ctx.lineTo(h[2], h[3]); ctx.lineTo(h[4], h[5]); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = C('#8fd0f2');
+      ctx.beginPath(); ctx.moveTo(h[2], h[3]); ctx.lineTo(lerp(h[2], h[0], .42), lerp(h[3], h[1], .42));
+      ctx.lineTo(lerp(h[2], h[4], .42), lerp(h[3], h[5], .42)); ctx.closePath(); ctx.fill(); });
+    // ראש
+    ctx.fillStyle = C(SKIN); ctx.beginPath(); ctx.ellipse(0, -48, 17, 15, 0, 0, Math.PI * 2); ctx.fill();
+    // חוטם בולט קדימה
+    ctx.fillStyle = C(SKIN); ctx.beginPath(); ctx.ellipse(9, -44, 11, 8, .1, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = C(BELLY); ctx.beginPath(); ctx.ellipse(10, -41, 9.5, 5.5, .1, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = C(PLATE); ctx.beginPath(); ctx.arc(16, -46, 1.4, 0, Math.PI * 2); ctx.fill();
+    // גבה משוריינת מעל העיניים
+    ctx.fillStyle = C(DARK); rr(-14, -57, 28, 6, 3); ctx.fill();
+    eyes(-6, 7, -50, 5, eo);
+    mouth(5, -38, 4, o.walking ? 1 : happy);
+    // ניב קטן
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.moveTo(9, -39); ctx.lineTo(11, -35); ctx.lineTo(7, -38); ctx.closePath(); ctx.fill();
   }
   else if (kind === 'iron') {
     const bodyC = C('#3d6bff');
